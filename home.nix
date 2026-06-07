@@ -110,7 +110,16 @@
     ];
   };
 
-  programs.swaylock.enable = true;
+  # programs.swaylockenable = true;
+  programs.swaylock = {
+    enable = true;
+    
+    settings = {
+      image = "./images/nix-lockscreen.jpg";
+      scaling = "fill";
+      color = "041a1f";
+    };
+  };
 
   programs.git = {
     enable = true;
