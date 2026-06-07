@@ -8,3 +8,6 @@
 !/hardware-configurationn.nix
 !/home.nix
 !/images/
+
+# dotfiles
+!/dotfiles/
