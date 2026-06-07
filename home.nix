@@ -152,10 +152,16 @@
     enableCompletion = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
+    defaultKeymap = "viins";
 
     shellAliases = {
       rebuild-all = "sudo nixos-rebuild switch --flake ~/eNix-config#nixos && home-manager switch --flake ~/eNix-config#mojolake";
-  };
+      vi = "nvim";
+    };
+    
+    initContent = ''
+	bindkey -M viins '^L' autosuggest-accept
+    '';
 
   };
 }
