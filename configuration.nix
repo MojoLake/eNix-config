@@ -125,4 +125,7 @@
 
   security.pam.services.swaylock = {};
 
+  programs.zsh.enable = true;
+  users.users.mojolake.shell = pkgs.zsh;  
+
 }
