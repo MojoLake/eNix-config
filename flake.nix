@@ -36,7 +36,7 @@
       
       modules = [
 	walker.homeManagerModules.default
-	.home.nix
+	./home.nix
       ];
     };
   };
