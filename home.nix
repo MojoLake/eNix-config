@@ -122,6 +122,11 @@
       };
 
       init.defaultBranch = "main";
+
+      alias = {
+        st = "status";
+	br = "branch";
+      };
     };
   };
 
