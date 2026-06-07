@@ -115,9 +115,9 @@
     enable = true;
     
     settings = {
-      image = "./images/nix-lockscreen.jpg";
-      scaling = "fill";
       color = "041a1f";
+      image = ./images/dark-sand.jpg;
+      scaling = "fill";
     };
   };
 
