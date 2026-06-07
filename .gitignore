@@ -1,0 +1,9 @@
+# Ignore everything
+/*
+
+!/.gitignore
+!/flake.nix
+!/flake.lock
+!/configuration.nix
+!/hardware-configurationn.nix
+!/home.nix
