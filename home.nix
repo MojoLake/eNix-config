@@ -25,6 +25,13 @@
     pkgs.zip
     pkgs.unzip
 
+    pkgs.neovim
+
+    pkgs.gcc
+    pkgs.gnumake
+
+    pkgs.python3
+
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
@@ -71,7 +78,8 @@
   #  /etc/profiles/per-user/mojolake/etc/profile.d/hm-session-vars.sh
   #
   home.sessionVariables = {
-    # EDITOR = "emacs";
+    EDITOR = "nvim";
+    VISUAL = "nvim";
   };
 
   # Let Home Manager install and manage itself.
@@ -142,10 +150,10 @@
     };
   };
 
-  programs.neovim = {
-    enable = true;
-    defaultEditor = true;
-  };
+  # configure neovim through the lua config
+  xdg.configFile."nvim".source =
+  	config.lib.file.mkOutOfStoreSymlink
+		"${config.home.homeDirectory}/eNix-config/dotfiles/nvim";
 
   programs.ripgrep.enable = true;
   programs.fd.enable = true;
