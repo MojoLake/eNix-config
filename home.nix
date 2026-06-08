@@ -167,5 +167,8 @@
 
 
   # configure niri through its own config file
-  xdg.configFile."niri/config.kdl".source = ./dotfiles/niri/config.kdl;
+  xdg.configFile."niri/config.kdl" = {
+    source = ./dotfiles/niri/config.kdl;
+    force = true;
+  };
 }
