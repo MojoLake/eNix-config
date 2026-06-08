@@ -113,6 +113,10 @@ layout {
     // Set gaps around windows in logical pixels.
     gaps 16
 
+    struts {
+        top -8
+    }
+
     // When to center a column when changing focus, options are:
     // - "never", default behavior, focusing an off-screen column will keep at the left
     //   or right edge of the screen.
@@ -254,12 +258,12 @@ layout {
     // Left and right struts will cause the next window to the side to always be visible.
     // Top and bottom struts will simply add outer gaps in addition to the area occupied by
     // layer-shell panels and regular gaps.
-    struts {
+    // struts {
         // left 64
         // right 64
         // top 64
         // bottom 64
-    }
+    // }
 }
 
 // Add lines like this to spawn processes at startup.
@@ -347,7 +351,7 @@ window-rule {
 }
 
 binds {
-    // OWN BINDS STARTS:
+    // OWN BINDS STARTS: (own)
     Mod+Space { spawn "walker"; }
 
     Mod+Ctrl+Q { spawn "swaylock"; }
@@ -358,7 +362,10 @@ binds {
     // similar to what I have in rectangle on macos
     Mod+Ctrl+Return { maximize-column; }
 
+    Mod+Ctrl+S { set-column-width "50%"; }
 
+    // Just override normal to nothing
+    // Mod+Tab { spwan "true"; } (nevermind, let it be)
     // OWN BINDS ENDS
 
     // Keys consist of modifiers separated by + signs, followed by an XKB key name
@@ -404,8 +411,12 @@ binds {
     // Example brightness key mappings for brightnessctl.
     // You can use regular spawn with multiple arguments too (to avoid going through "sh"),
     // but you need to manually put each argument in separate "" quotes.
-    XF86MonBrightnessUp allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "+10%"; }
-    XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "10%-"; }
+    XF86MonBrightnessUp allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "+5%"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "5%-"; }
+
+    // own stuff:
+    Alt+Shift+XF86MonBrightnessUp allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "+1%"; }
+    Alt+Shift+XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "1%-"; }
 
     // Open/close the Overview: a zoomed-out view of workspaces and windows.
     // You can also move the mouse into the top-left hot corner,
