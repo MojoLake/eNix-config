@@ -128,4 +128,6 @@
   programs.zsh.enable = true;
   users.users.mojolake.shell = pkgs.zsh;  
 
+  programs.waybar.enable = true;
+
 }
