@@ -355,6 +355,9 @@ binds {
     // default is Mod+T, I changed to Mod+D to resemble Macos
     Mod+D hotkey-overlay-title="Open a Terminal: ghostty" { spawn "ghostty"; }
 
+    // similar to what I have in rectangle on macos
+    Mod+Ctrl+Return { maximize-column; }
+
     // OWN BINDS ENDS
 
     // Keys consist of modifiers separated by + signs, followed by an XKB key name
