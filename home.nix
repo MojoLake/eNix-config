@@ -184,4 +184,8 @@
     source = ./dotfiles/niri/config.kdl;
     force = true;
   };
+
+  # allow unfree packages
+  nixpkgs.config.allowUnfree = true;
+  programs.obsidian.enable = true;
 }
