@@ -365,6 +365,7 @@ binds {
     Mod+Ctrl+S { set-column-width "50%"; }
 
     Mod+T { spawn "wtype" "-M" "ctrl" "t" "-m" "ctrl"; }
+    Mod+W { spawn "wtype" "-M" "ctrl" "w" "-m" "ctrl"; }
 
     // Just override normal to nothing
     // Mod+Tab { spwan "true"; } (nevermind, let it be)
