@@ -195,4 +195,13 @@
   # allow unfree packages
   nixpkgs.config.allowUnfree = true;
   programs.obsidian.enable = true;
+
+  systemd.user.services.swaybg = {
+    Unit.Description = "Wallpaper";
+
+    Service.ExecStart = 
+        "${pkgs.swaybg}/bin/swaybg -i /home/mojolake/eNix-config/images/mountain_wallpaper.jpg -m fill";
+
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
 }
