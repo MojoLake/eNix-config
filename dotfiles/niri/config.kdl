@@ -366,6 +366,7 @@ binds {
 
     Mod+T { spawn "wtype" "-M" "ctrl" "t" "-m" "ctrl"; }
     Mod+W { spawn "wtype" "-M" "ctrl" "w" "-m" "ctrl"; }
+    // Mod+C { spawn "wtype" "-M" "ctrl" "c" "-m" "ctrl"; }
 
     // Just override normal to nothing
     // Mod+Tab { spwan "true"; } (nevermind, let it be)
@@ -599,7 +600,7 @@ binds {
     // Makes the column "fill the rest of the space".
     Mod+Ctrl+F { expand-column-to-available-width; }
 
-    Mod+C { center-column; }
+    // Mod+C { center-column; }
 
     // Center all fully visible columns on screen.
     Mod+Ctrl+C { center-visible-columns; }
