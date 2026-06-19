@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+key="${1:?usage: macos-key c|v}"
+
+app_id="$(niri msg --json focused-window | jq -r '.app_id // ""')"
+
+case "$key:$app_id" in
+    c:com.mitchellh.ghostty)
+        wtype -M ctrl -M shift c -m shift -m ctrl
+        ;;
+    v:com.mitchellh.ghostty)
+        wtype -M ctrl -M shift v -m shift -m ctrl
+        ;;
+    c:*)
+        wtype -M ctrl c -m ctrl
+        ;;
+    v:*)
+        wtype -M ctrl v -m ctrl
+        ;;
+    *)
+        exit 2
+        ;;
+esac

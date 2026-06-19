@@ -366,7 +366,9 @@ binds {
 
     Mod+T { spawn "wtype" "-M" "ctrl" "t" "-m" "ctrl"; }
     Mod+W { spawn "wtype" "-M" "ctrl" "w" "-m" "ctrl"; }
-    // Mod+C { spawn "wtype" "-M" "ctrl" "c" "-m" "ctrl"; }
+
+    Mod+C { spawn "/home/mojolake/eNix-config/scripts/macos-key" "c"; }
+    Mod+V { spawn "/home/mojolake/eNix-config/scripts/macos-key" "v"; }
 
     // Just override normal to nothing
     // Mod+Tab { spwan "true"; } (nevermind, let it be)
@@ -587,7 +589,7 @@ binds {
     Mod+Ctrl+Shift+R { switch-preset-window-height; }
     Mod+Ctrl+R { reset-window-height; }
 
-    Mod+F { maximize-column; }
+    // Mod+F { maximize-column; } our rectangle thing does this
     Mod+Shift+F { fullscreen-window; }
 
     // While maximize-column leaves gaps and borders around the window,
@@ -621,7 +623,7 @@ binds {
     Mod+Shift+Equal { set-window-height "+10%"; }
 
     // Move the focused window between the floating and the tiling layout.
-    Mod+V       { toggle-window-floating; }
+    Mod+F       { toggle-window-floating; }
     Mod+Shift+V { switch-focus-between-floating-and-tiling; }
 
     // Toggle tabbed column display mode.

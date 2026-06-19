@@ -11,3 +11,6 @@
 
 # dotfiles
 !/dotfiles/
+
+#scripts
+!/scripts/
