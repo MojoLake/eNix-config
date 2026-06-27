@@ -197,6 +197,15 @@
     force = true;
   };
 
+  xdg.configFile."waybar/config.jsonc" = {
+    source = ./dotfiles/waybar/config.jsonc;
+    force = true;
+  };
+  xdg.configFile."waybar/style.css" = {
+    source = ./dotfiles/waybar/style.css;
+    force = true;
+  };
+
   # allow unfree packages
   nixpkgs.config.allowUnfree = true;
   programs.obsidian.enable = true;
