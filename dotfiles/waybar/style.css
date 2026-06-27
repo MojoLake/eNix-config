@@ -1,0 +1,15 @@
+* {
+  font-family: monospace;
+  font-size: 11px;
+}
+
+window#waybar {
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+#memory,
+#battery,
+#clock {
+  padding: 0 5px;
+}

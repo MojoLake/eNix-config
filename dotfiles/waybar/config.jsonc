@@ -1,0 +1,31 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 5,
+
+  "modules-left": [
+    "niri/workspaces"
+  ],
+
+  "modules-right": [
+    "memory",
+    "battery",
+    "clock"
+  ],
+
+  "memory": {
+    "format": "M {percentage}%"
+  },
+
+  "battery": {
+    "format": "🔋{capacity}%",
+    "format-charging": "🔋{capacity}% +",
+    "format-plugged": "🔋{capacity}% AC",
+    "interval": 10
+  },
+
+  "clock": {
+    "format": "{:%Y-%m-%d %H:%M}",
+    "interval": 1
+  }
+}
