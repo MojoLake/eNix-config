@@ -9,12 +9,18 @@
 
   "modules-right": [
     "memory",
+    "network",
     "battery",
     "clock"
   ],
 
   "memory": {
     "format": "M {percentage}%"
+  },
+
+  "network": {
+    "format-wifi": "Wi-Fi",
+    "format-disconnected": "No Wi-Fi"
   },
 
   "battery": {
