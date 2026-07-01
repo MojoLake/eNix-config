@@ -306,7 +306,7 @@ animations {
     // off
 
     // Slow down all animations by this factor. Values below 1 speed them up instead.
-    // slowdown 3.0
+    slowdown 0.5
 }
 
 // Window rules let you adjust behavior for individual windows.
@@ -358,7 +358,7 @@ binds {
     Mod+Ctrl+Q { spawn "swaylock"; }
 
     // default is Mod+T, I changed to Mod+D to resemble Macos
-    Mod+D hotkey-overlay-title="Open a Terminal: ghostty" { spawn "ghostty"; }
+    Mod+D hotkey-overlay-title="Open a Terminal: ghostty" { spawn "ghostty" "+new-window"; }
 
     // similar to what I have in rectangle on macos
     Mod+Ctrl+Return { maximize-column; }
