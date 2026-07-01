@@ -46,6 +46,8 @@
 
     pkgs.codex
 
+    pkgs.tree
+
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
@@ -102,6 +104,7 @@
   # <3 hashimoto
   programs.ghostty = {
     enable = true;
+    systemd.enable = true;
 
     settings = {
       keybind = [
@@ -196,6 +199,9 @@
     source = ./dotfiles/niri/config.kdl;
     force = true;
   };
+
+  xdg.configFile."systemd/user/graphical-session.target.wants/app-com.mitchellh.ghostty.service".source =
+    "${config.programs.ghostty.package}/share/systemd/user/app-com.mitchellh.ghostty.service";
 
   xdg.configFile."waybar/config.jsonc" = {
     source = ./dotfiles/waybar/config.jsonc;
