@@ -54,7 +54,7 @@
     pkgs.wl-clipboard
 
     # For screen recording
-    pkgs.kooha
+    pkgs.gpu-screen-recorder-gtk
 
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
