@@ -131,4 +131,23 @@
 
   programs.waybar.enable = true;
 
+    hardware.graphics = {
+        enable = true;
+        extraPackages = with pkgs; [
+            intel-media-driver
+            libva-utils
+        ];
+    };
+
+    environment.sessionVariables = {
+        LIBVA_DRIVER_NAME = "iHD";
+    };
+
+    security.wrappers.gsr-kms-server = {
+        owner = "root";
+        group = "root";
+        capabilities = "cap_sys_admin+ep";
+        source = "${pkgs.gpu-screen-recorder}/bin/gsr-kms-server";
+    };
+
 }
