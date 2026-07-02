@@ -48,6 +48,10 @@
 
     pkgs.tree
 
+    pkgs.grim
+    pkgs.slurp
+    pkgs.wl-clipboard
+
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
@@ -189,6 +193,7 @@
     
     initContent = ''
 	bindkey -M viins '^L' autosuggest-accept
+	bindkey -M viins '^R' history-incremental-search-backward
     '';
 
   };

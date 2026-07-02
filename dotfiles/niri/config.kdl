@@ -371,6 +371,8 @@ binds {
     Mod+C { spawn "/home/mojolake/eNix-config/scripts/macos-key" "c"; }
     Mod+V { spawn "/home/mojolake/eNix-config/scripts/macos-key" "v"; }
 
+    Mod+Shift+Ctrl+4 { spawn-sh "grim -g \"$(slurp)\" - | wl-copy" ; }
+
     // Just override normal to nothing
     // Mod+Tab { spwan "true"; } (nevermind, let it be)
     // OWN BINDS ENDS
