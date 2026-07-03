@@ -246,6 +246,11 @@
     force = true;
   };
 
+  xdg.configFile."mpv/mpv.conf" = {
+    source = ./dotfiles/mpv/mpv.conf;
+  };
+
+
   # allow unfree packages
   nixpkgs.config.allowUnfree = true;
   programs.obsidian.enable = true;
