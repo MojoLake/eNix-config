@@ -89,7 +89,16 @@
     #   org.gradle.console=verbose
     #   org.gradle.daemon.idletimeout=3600000
     # '';
+
+    ".local/bin/gpu-screen-recorder-toggle" = {
+        source = ./scripts/gpu-screen-recorder-toggle;
+        executable = true;
+    };
   };
+
+  home.sessionPath = [
+    "$HOME/.local/bin"
+  ];
 
   # Home Manager can also manage your environment variables through
   # 'home.sessionVariables'. These will be explicitly sourced when using a
