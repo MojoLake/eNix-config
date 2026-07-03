@@ -66,6 +66,7 @@
 
     pkgs.imv
     pkgs.zathura
+    pkgs.mpv
 
     pkgs.thunar
     pkgs.tumbler
@@ -260,6 +261,11 @@
           "application/pdf" = [ "org.pwmt.zathura.desktop" ];
 
           "inode/directory" = [ "thunar.desktop" ];
+
+            "video/mp4" = [ "mpv.desktop" ];
+            "video/x-matroska" = [ "mpv.desktop" ]; # .mkv
+            "video/webm" = [ "mpv.desktop" ];
+            "video/x-msvideo" = [ "mpv.desktop" ]; # .avi
         };
     };
 }
