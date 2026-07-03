@@ -245,4 +245,15 @@
   nixpkgs.config.allowUnfree = true;
   programs.obsidian.enable = true;
 
+    xdg.mimeApps = {
+        enable = true;
+
+        defaultApplications = {
+          "image/png" = [ "imv.desktop" ];
+          "image/jpeg" = [ "imv.desktop" ];
+          "image/webp" = [ "imv.desktop" ];
+
+          "application/pdf" = [ "org.pwmt.zathura.desktop" ];
+        };
+    };
 }
