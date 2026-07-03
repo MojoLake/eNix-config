@@ -216,6 +216,7 @@
     shellAliases = {
       rebuild-all = "sudo nixos-rebuild switch --flake ~/eNix-config#nixos && home-manager switch --flake ~/eNix-config#mojolake";
       vi = "nvim";
+      open = "xdg-open";
     };
     
     initContent = ''
