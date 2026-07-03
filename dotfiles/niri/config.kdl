@@ -373,7 +373,7 @@ binds {
 
     // Macos like screenshots and screen recording combinations
     Mod+Shift+Ctrl+4 { spawn-sh "grim -g \"$(slurp)\" - | wl-copy" ; }
-    Mod+Shift+5 { spawn "gpu-screen-recorder-gtk"; }
+    Mod+Shift+5 { spawn "gpu-screen-recorder-toggle"; }
 
     // Just override normal to nothing
     // Mod+Tab { spwan "true"; } (nevermind, let it be)
