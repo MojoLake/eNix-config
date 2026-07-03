@@ -54,7 +54,7 @@
     pkgs.wl-clipboard
 
     # For screen recording
-    pkgs.gpu-screen-recorder-gtk
+    pkgs.gpu-screen-recorder
 
     pkgs.pciutils
 
