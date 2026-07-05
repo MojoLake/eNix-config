@@ -160,6 +160,9 @@
 
        0.0.0.0 youtube.com
        0.0.0.0 www.youtube.com
+
+       0.0.0.0 linkedin.com
+       0.0.0.0 www.linkedin.com
     '';
 
 }
