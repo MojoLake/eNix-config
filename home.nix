@@ -143,7 +143,7 @@
 
     settings = {
       keybind = [
- 	"ctrl+w=close_tab"
+ 	"ctrl+w=close_surface"
       ];
     };
   };
