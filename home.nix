@@ -29,8 +29,11 @@
 
     pkgs.gcc
     pkgs.gnumake
+
     pkgs.zig
     pkgs.zls
+
+    pkgs.rustup
 
     pkgs.python3
 
