@@ -154,4 +154,12 @@
         source = "${pkgs.gpu-screen-recorder}/bin/gsr-kms-server";
     };
 
+    networking.extraHosts = ''
+       0.0.0.0 x.com
+       0.0.0.0 www.x.com
+
+       0.0.0.0 youtube.com
+       0.0.0.0 www.youtube.com
+    '';
+
 }
