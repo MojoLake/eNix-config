@@ -165,4 +165,5 @@
        0.0.0.0 www.linkedin.com
     '';
 
+    environment.etc.hosts.mode = "0644";
 }
