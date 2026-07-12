@@ -70,6 +70,8 @@
     pkgs.imv
     pkgs.zathura
     pkgs.mpv
+    pkgs.spotify-player
+    pkgs.playerctl
 
     pkgs.thunar
     pkgs.tumbler
