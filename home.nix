@@ -37,6 +37,8 @@
 
     pkgs.python3
 
+    pkgs.scala_2_12
+
     pkgs.brightnessctl
 
     pkgs.wtype
