@@ -202,6 +202,7 @@
       alias = {
         st = "status";
         br = "branch";
+        c = "commit";
       };
     };
   };
