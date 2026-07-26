@@ -201,7 +201,7 @@
 
       alias = {
         st = "status";
-	br = "branch";
+        br = "branch";
       };
     };
   };
