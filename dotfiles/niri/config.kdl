@@ -375,8 +375,8 @@ binds {
     Mod+Shift+Ctrl+4 { spawn-sh "grim -g \"$(slurp)\" - | wl-copy" ; }
     Mod+Shift+5 { spawn "gpu-screen-recorder-toggle"; }
 
-      XF86TouchpadOn { spawn-sh "playerctl play-pause"; }
-      F23 { spawn-sh "playerctl previous"; }
+      XF86TouchpadOn { spawn-sh "playerctl previous"; }
+      F23 { spawn-sh "playerctl play-pause"; }
       XF86Favorites { spawn-sh "playerctl next"; }
 
     // Just override normal to nothing
