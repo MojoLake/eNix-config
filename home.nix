@@ -36,6 +36,7 @@
     pkgs.rustup
 
     pkgs.python3
+    pkgs.uv
 
     pkgs.scala_2_12
 
