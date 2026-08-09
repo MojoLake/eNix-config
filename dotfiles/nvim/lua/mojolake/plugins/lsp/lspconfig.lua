@@ -213,6 +213,7 @@ return {
         -- })
 
         lspconfig["basedpyright"].setup({
+            cmd = { "/home/mojolake/.nix-profile/bin/basedpyright-langserver", "--stdio" },
             capabilities = capabilities,
             on_attach = on_attach,
             settings = {

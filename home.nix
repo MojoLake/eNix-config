@@ -38,6 +38,7 @@
     pkgs.rustup
 
     pkgs.python3
+    pkgs.basedpyright
     pkgs.uv
 
     pkgs.scala_2_12
