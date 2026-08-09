@@ -48,7 +48,7 @@
 
   # Configure keymap in X11
   services.xserver.xkb = {
-    layout = "us,fi";
+    layout = "us,fi,es";
     variant = "";
     options = "grp:ctrl_space_toggle";
   };
