@@ -26,6 +26,8 @@
     pkgs.unzip
 
     pkgs.neovim
+    
+    pkgs.typst
 
     pkgs.gcc
     pkgs.gnumake
