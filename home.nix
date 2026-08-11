@@ -154,7 +154,6 @@
 
     settings = {
       keybind = [
- 	"ctrl+w=close_surface"
       ];
     };
   };
