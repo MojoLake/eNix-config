@@ -153,6 +153,9 @@
     systemd.enable = true;
 
     settings = {
+      working-directory = "home";
+      window-inherit-working-directory = true;
+
       keybind = [
       ];
     };
