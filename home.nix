@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, unstablePkgs, ... }:
 
 {
   # Home Manager needs a bit of information about you and the paths it should
@@ -53,7 +53,7 @@
 
     pkgs.jq
 
-    pkgs.codex
+    unstablePkgs.codex
 
     pkgs.tree
 
