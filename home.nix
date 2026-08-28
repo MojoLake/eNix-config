@@ -31,6 +31,7 @@
 
     pkgs.gcc
     pkgs.gnumake
+    pkgs.clang-tools
 
     pkgs.zig
     pkgs.zls
