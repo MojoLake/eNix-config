@@ -31,6 +31,7 @@
 
     pkgs.gcc
     pkgs.gnumake
+    pkgs.meson
     pkgs.clang-tools
 
     pkgs.zig
