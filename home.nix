@@ -25,8 +25,6 @@
     pkgs.zip
     pkgs.unzip
 
-    pkgs.neovim
-    
     pkgs.typst
 
     pkgs.gcc
@@ -217,6 +215,14 @@
         c = "commit";
       };
     };
+  };
+
+  programs.neovim = {
+    enable = true;
+    defaultEditor = true;
+    sideloadInitLua = true;
+    viAlias = true;
+    vimAlias = true;
   };
 
   # configure neovim through the lua config
