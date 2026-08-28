@@ -20,11 +20,11 @@ return {
             opts.desc = "Show LSP references"
             vim.keymap.set("n", "gR", "<cmd>Telescope lsp_references<CR>", opts)
 
-            opts.desc = "Go to declaration"
-            vim.keymap.set("n", "gd", vim.lsp.buf.declaration, opts)
+            opts.desc = "Go to definition"
+            vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
 
-            opts.desc = "Show LSP definitions"
-            vim.keymap.set("n", "gD", "<cmd>Telescope lsp_definitions<CR>", opts)
+            opts.desc = "Go to declaration"
+            vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
 
             opts.desc = "See available code actions"
             vim.keymap.set({"n", "v"}, "<leader>ca", vim.lsp.buf.code_action, opts)
@@ -210,6 +210,21 @@ return {
         lspconfig["clangd"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
+            root_dir = lspconfig.util.root_pattern(
+                "compile_commands.json",
+                "compile_flags.txt",
+                "meson.build",
+                ".git"
+            ),
+            on_new_config = function(new_config, root_dir)
+                local build_dir = root_dir .. "/build"
+                if vim.uv.fs_stat(build_dir .. "/compile_commands.json") then
+                    new_config.cmd = {
+                        "clangd",
+                        "--compile-commands-dir=" .. build_dir,
+                    }
+                end
+            end,
         })
 
         lspconfig["basedpyright"].setup({
