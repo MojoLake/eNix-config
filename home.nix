@@ -47,6 +47,7 @@
 
     pkgs.wtype
     pkgs.swaybg
+    pkgs.wayland-scanner
 
     pkgs.usbutils
     pkgs.v4l-utils
