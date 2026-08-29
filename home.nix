@@ -245,6 +245,7 @@
       vi = "nvim";
       open = "xdg-open";
       codex-d = "codex --dangerously-bypass-approvals-and-sandbox";
+      nd = "nix develop --command zsh -i";
     };
     
     initContent = ''
