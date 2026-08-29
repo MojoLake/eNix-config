@@ -8,11 +8,16 @@
   ],
 
   "modules-right": [
+    "niri/language",
     "memory",
     "network",
     "battery",
     "clock"
   ],
+
+  "niri/language": {
+    "format": "{shortDescription}"
+  },
 
   "memory": {
     "format": "M {percentage}%"
