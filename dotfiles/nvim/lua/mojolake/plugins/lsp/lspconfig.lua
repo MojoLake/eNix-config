@@ -31,7 +31,7 @@ return {
 
             opts.desc = "Go to definition in horizontal split"
             vim.keymap.set("n", "gH", function()
-                vim.cmd("split")
+                vim.cmd("belowright split")
                 vim.lsp.buf.definition()
             end, opts)
 
