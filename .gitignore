@@ -2,6 +2,7 @@
 /*
 
 !/.gitignore
+!/AGENTS.md
 !/flake.nix
 !/flake.lock
 !/configuration.nix
