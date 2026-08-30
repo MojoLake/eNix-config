@@ -23,6 +23,18 @@ return {
             opts.desc = "Go to definition"
             vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
 
+            opts.desc = "Go to definition in vertical split"
+            vim.keymap.set("n", "gV", function()
+                vim.cmd("vsplit")
+                vim.lsp.buf.definition()
+            end, opts)
+
+            opts.desc = "Go to definition in horizontal split"
+            vim.keymap.set("n", "gH", function()
+                vim.cmd("split")
+                vim.lsp.buf.definition()
+            end, opts)
+
             opts.desc = "Go to declaration"
             vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
 
