@@ -77,7 +77,7 @@
     pkgs.imv
     pkgs.zathura
     pkgs.mpv
-    pkgs.spotify-player
+    unstablePkgs.spotify-player
     pkgs.playerctl
 
     pkgs.thunar
