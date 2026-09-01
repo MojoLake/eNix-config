@@ -198,6 +198,17 @@
     };
   };
 
+  services.mako.enable = true;
+
+  services.batsignal = {
+    enable = true;
+    extraArgs = [
+      "-w" "10"
+      "-c" "5"
+      "-d" "0"
+    ];
+  };
+
   programs.git = {
     enable = true;
     
