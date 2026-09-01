@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+window_id="$(niri msg --json windows | jq -r '
+  map(select(
+    .app_id == "com.mitchellh.ghostty"
+    and .focus_timestamp != null
+  ))
+  | max_by([.focus_timestamp.secs, .focus_timestamp.nanos])
+  | .id // empty
+')"
+
+if [[ -z "$window_id" ]]; then
+  exec ghostty +new-window
+fi
+
+niri msg action focus-window --id "$window_id"
+exec wtype -M ctrl -M shift n -m shift -m ctrl

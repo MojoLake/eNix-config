@@ -366,7 +366,7 @@ binds {
     Mod+Ctrl+Q { spawn "swaylock"; }
 
     // default is Mod+T, I changed to Mod+D to resemble Macos
-    Mod+D hotkey-overlay-title="Open a Terminal: ghostty" { spawn "ghostty" "+new-window"; }
+    Mod+D hotkey-overlay-title="Open a Terminal: ghostty" { spawn "/home/mojolake/eNix-config/scripts/ghostty-new-window"; }
 
     // similar to what I have in rectangle on macos
     Mod+Ctrl+Return { maximize-column; }

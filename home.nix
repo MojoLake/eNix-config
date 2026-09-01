@@ -154,6 +154,7 @@
     systemd.enable = true;
 
     settings = {
+      gtk-single-instance = true;
       working-directory = "home";
       window-inherit-working-directory = true;
 
