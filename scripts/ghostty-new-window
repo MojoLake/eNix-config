@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-window_id="$(niri msg --json windows | jq -r '
+workspace_id="$(niri msg --json workspaces | jq -r '
+  first(.[] | select(.is_focused) | .id) // empty
+')"
+
+window_id="$(niri msg --json windows | jq -r --argjson workspace_id "$workspace_id" '
   map(select(
     .app_id == "com.mitchellh.ghostty"
+    and .workspace_id == $workspace_id
     and .focus_timestamp != null
   ))
   | max_by([.focus_timestamp.secs, .focus_timestamp.nanos])
