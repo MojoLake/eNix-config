@@ -198,7 +198,15 @@
     };
   };
 
-  services.mako.enable = true;
+  services.mako = {
+    enable = true;
+
+    settings."app-name=batsignal" = {
+      background-color = "#991b1b";
+      border-color = "#ef4444";
+      text-color = "#ffffff";
+    };
+  };
 
   services.batsignal = {
     enable = true;
