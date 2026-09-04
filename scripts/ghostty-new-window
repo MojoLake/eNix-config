@@ -1,23 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-workspace_id="$(niri msg --json workspaces | jq -r '
-  first(.[] | select(.is_focused) | .id) // empty
+focused_app_id="$(niri msg --json windows | jq -r '
+  first(.[] | select(.is_focused) | .app_id) // empty
 ')"
 
-window_id="$(niri msg --json windows | jq -r --argjson workspace_id "$workspace_id" '
-  map(select(
-    .app_id == "com.mitchellh.ghostty"
-    and .workspace_id == $workspace_id
-    and .focus_timestamp != null
-  ))
-  | max_by([.focus_timestamp.secs, .focus_timestamp.nanos])
-  | .id // empty
-')"
-
-if [[ -z "$window_id" ]]; then
-  exec ghostty +new-window
+if [[ "$focused_app_id" == "com.mitchellh.ghostty" ]]; then
+  exec wtype -M ctrl -M shift n -m shift -m ctrl
 fi
 
-niri msg action focus-window --id "$window_id"
-exec wtype -M ctrl -M shift n -m shift -m ctrl
+exec ghostty +new-window
