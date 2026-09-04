@@ -65,6 +65,7 @@
 
     # For screen recording
     pkgs.gpu-screen-recorder
+    pkgs.ffmpeg-headless
 
     pkgs.pciutils
 
