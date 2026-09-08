@@ -13,3 +13,9 @@ window#waybar {
 #clock {
   padding: 0 5px;
 }
+
+#custom-recording {
+  color: #f38ba8;
+  font-size: 14px;
+  padding: 0 5px;
+}
