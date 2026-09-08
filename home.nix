@@ -254,12 +254,25 @@
   programs.ripgrep.enable = true;
   programs.fd.enable = true;
 
+  programs.fzf = {
+    enable = true;
+    enableZshIntegration = true;
+  };
+
   programs.zsh = {
     enable = true;
     enableCompletion = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
     defaultKeymap = "viins";
+
+    plugins = [
+      {
+        name = "fzf-tab";
+        src = pkgs.zsh-fzf-tab;
+        file = "share/fzf-tab/fzf-tab.plugin.zsh";
+      }
+    ];
 
     shellAliases = {
       rebuild-all = "sudo nixos-rebuild switch --flake ~/eNix-config#nixos && home-manager switch --flake ~/eNix-config#mojolake";
@@ -271,7 +284,6 @@
     
     initContent = ''
 	bindkey -M viins '^L' autosuggest-accept
-	bindkey -M viins '^R' history-incremental-search-backward
     '';
 
   };
