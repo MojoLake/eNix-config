@@ -31,7 +31,7 @@ input {
     touchpad {
         // off
         tap
-        // dwt
+        dwt
         // dwtp
         // drag false
         // drag-lock
@@ -68,6 +68,10 @@ input {
     // Setting max-scroll-amount="0%" makes it work only on windows already fully on screen.
     // focus-follows-mouse max-scroll-amount="0%"
 }
+
+// Mutable state written by touchpad-toggle. Niri watches included files and
+// reloads the input configuration whenever the shortcut changes this file.
+include optional=true "~/.local/state/niri/touchpad-state.kdl"
 
 // You can configure outputs by their name, which you can find
 // by running `niri msg outputs` while inside a niri instance.
@@ -387,6 +391,7 @@ binds {
     Mod+Shift+Ctrl+4 { spawn-sh "grim -g \"$(slurp)\" - | wl-copy" ; }
     Mod+Shift+5 { spawn "gpu-screen-recorder-toggle"; }
     Mod+Shift+Delete repeat=false { spawn "gpu-screen-recorder-recent" "delete"; }
+    Mod+Shift+T repeat=false hotkey-overlay-title="Toggle Touchpad" { spawn "touchpad-toggle"; }
 
       XF86TouchpadOn { spawn-sh "playerctl previous"; }
       F23 { spawn-sh "playerctl play-pause"; }

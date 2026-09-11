@@ -126,6 +126,11 @@
         source = ./scripts/gpu-screen-recorder-recent;
         executable = true;
     };
+
+    ".local/bin/touchpad-toggle" = {
+        source = ./scripts/touchpad-toggle;
+        executable = true;
+    };
   };
 
   home.sessionPath = [
@@ -313,6 +318,7 @@
   xdg.configFile."waybar/config.jsonc" = {
     source = ./dotfiles/waybar/config.jsonc;
     force = true;
+    onChange = "${pkgs.systemd}/bin/systemctl --user try-restart waybar.service";
   };
   xdg.configFile."waybar/style.css" = {
     source = ./dotfiles/waybar/style.css;

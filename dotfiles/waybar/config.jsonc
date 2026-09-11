@@ -9,6 +9,7 @@
 
   "modules-right": [
     "custom/recording",
+    "custom/touchpad-disabled",
     "niri/language",
     "memory",
     "network",
@@ -19,6 +20,13 @@
   "custom/recording": {
     "exec": "printf '●\\n'",
     "exec-if": "pidfile=\"${XDG_RUNTIME_DIR:-/tmp}/gpu-screen-recorder-toggle.pid\"; test -r \"$pidfile\" && kill -0 \"$(cat \"$pidfile\")\" 2>/dev/null",
+    "interval": 1,
+    "tooltip": false
+  },
+
+  "custom/touchpad-disabled": {
+    "exec": "printf 'TP×\\n'",
+    "exec-if": "state_file=\"${XDG_STATE_HOME:-$HOME/.local/state}/niri/touchpad-state.kdl\"; test -r \"$state_file\" && grep -q '^// touchpad-disabled$' \"$state_file\"",
     "interval": 1,
     "tooltip": false
   },

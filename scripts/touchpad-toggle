@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/niri"
+state_file="$state_dir/touchpad-state.kdl"
+state_tmp="$state_file.$$"
+
+mkdir -p "$state_dir"
+
+if [[ -r "$state_file" ]] && grep -q '^// touchpad-disabled$' "$state_file"; then
+    printf '%s\n' '// Touchpad enabled.' > "$state_tmp"
+else
+    printf '%s\n' \
+        '// touchpad-disabled' \
+        'input {' \
+        '    touchpad {' \
+        '        off' \
+        '        tap' \
+        '        dwt' \
+        '        natural-scroll' \
+        '    }' \
+        '}' > "$state_tmp"
+fi
+
+mv -f "$state_tmp" "$state_file"
