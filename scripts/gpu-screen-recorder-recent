@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly max_age_seconds=10
+readonly runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
+readonly state_file="$runtime_dir/gpu-screen-recorder-recent-$(id -u)"
+
+notify() {
+    notify-send --app-name="Screen Recorder" --expire-time=2500 "$@"
+}
+
+write_recent() {
+    local completed_at="$1"
+    local recording="$2"
+    local state_tmp="$state_file.$$"
+
+    umask 077
+    printf '%s\n%s\n' "$completed_at" "$recording" > "$state_tmp"
+    mv -f "$state_tmp" "$state_file"
+}
+
+load_recent() {
+    [[ -r "$state_file" ]] || return 1
+
+    IFS= read -r recent_completed_at < "$state_file"
+    IFS= read -r recent_recording < <(sed -n '2p' "$state_file")
+
+    [[ "$recent_completed_at" =~ ^[0-9]+$ ]]
+    [[ -n "$recent_recording" && -f "$recent_recording" ]]
+}
+
+is_fresh() {
+    local completed_at="$1"
+    local now age
+
+    now="$(date +%s)"
+    age=$((now - completed_at))
+    (( age >= 0 && age <= max_age_seconds ))
+}
+
+clear_if_current() {
+    local completed_at="$1"
+    local recording="$2"
+
+    if load_recent \
+        && [[ "$recent_completed_at" == "$completed_at" ]] \
+        && [[ "$recent_recording" == "$recording" ]]; then
+        rm -f "$state_file"
+    fi
+}
+
+open_recording() {
+    local recording="$1"
+
+    if [[ -f "$recording" ]]; then
+        xdg-open "$recording" >/dev/null 2>&1 &
+    else
+        notify "Recording unavailable" "The recording no longer exists."
+    fi
+}
+
+trash_recording() {
+    local completed_at="$1"
+    local recording="$2"
+
+    if ! is_fresh "$completed_at"; then
+        clear_if_current "$completed_at" "$recording"
+        notify "Recording kept" "The 10-second deletion window has passed."
+        return 1
+    fi
+
+    if [[ ! -f "$recording" ]]; then
+        clear_if_current "$completed_at" "$recording"
+        notify "Recording unavailable" "The recording no longer exists."
+        return 1
+    fi
+
+    gio trash -- "$recording"
+    clear_if_current "$completed_at" "$recording"
+    notify "Recording moved to trash" "$(basename "$recording")"
+}
+
+show_completion_notification() {
+    local completed_at="$1"
+    local recording="$2"
+    local thumbnail="$runtime_dir/gpu-screen-recorder-thumbnail-${completed_at}-$$.jpg"
+    local -a icon_args=()
+    local action
+
+    if ffmpeg -hide_banner -loglevel error -y \
+        -ss 0.1 -i "$recording" \
+        -frames:v 1 -vf "scale='min(320,iw)':-2" "$thumbnail"; then
+        icon_args=(--icon="$thumbnail")
+    fi
+
+    action="$(
+        notify-send \
+            --app-name="Screen Recorder" \
+            --expire-time=10000 \
+            --transient \
+            "${icon_args[@]}" \
+            --action=default=Open \
+            --action=delete=Delete \
+            "Recording saved" \
+            "Left-click to open · Middle-click for actions · Mod+Shift+Delete to trash"
+    )" || true
+
+    rm -f "$thumbnail"
+
+    case "$action" in
+        default) open_recording "$recording" ;;
+        delete) trash_recording "$completed_at" "$recording" ;;
+    esac
+}
+
+case "${1:-}" in
+    complete)
+        [[ $# -eq 2 && -f "$2" ]] || exit 1
+        completed_at="$(date +%s)"
+        write_recent "$completed_at" "$2"
+        show_completion_notification "$completed_at" "$2"
+        ;;
+    delete)
+        if load_recent; then
+            trash_recording "$recent_completed_at" "$recent_recording"
+        else
+            rm -f "$state_file"
+            notify "Nothing to delete" "There is no recent screen recording."
+        fi
+        ;;
+    open)
+        if load_recent; then
+            open_recording "$recent_recording"
+        else
+            rm -f "$state_file"
+            notify "Nothing to open" "There is no recent screen recording."
+        fi
+        ;;
+    *)
+        printf 'Usage: %s {complete FILE|delete|open}\n' "${0##*/}" >&2
+        exit 2
+        ;;
+esac
