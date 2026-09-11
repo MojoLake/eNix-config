@@ -1,21 +1,43 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-pidfile="${XDG_RUNTIME_DIR:-/tmp}/gpu-screen-recorder-toggle.pid"
+runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
+state_prefix="$runtime_dir/gpu-screen-recorder-toggle"
+pidfile="$state_prefix.pid"
+outputfile="$state_prefix.output"
 
 if [[ -f "$pidfile" ]]; then
     pid="$(cat "$pidfile")"
 
     if kill -0 "$pid" 2>/dev/null; then
+        recording=""
+        if [[ -r "$outputfile" ]]; then
+            IFS= read -r recording < "$outputfile"
+        fi
+
         kill -INT "$pid"
-        rm -f "$pidfile"
+        rm -f "$pidfile" "$outputfile"
+
+        # Let gpu-screen-recorder finish writing the MP4 before offering it.
+        for _ in {1..100}; do
+            if ! kill -0 "$pid" 2>/dev/null; then
+                break
+            fi
+            sleep 0.05
+        done
+
+        if [[ -n "$recording" && -s "$recording" ]]; then
+            gpu-screen-recorder-recent complete "$recording" >/dev/null 2>&1 &
+        fi
         exit 0
     fi
 
-    rm -f "$pidfile"
+    rm -f "$pidfile" "$outputfile"
 fi
 
 mkdir -p "$HOME/Videos"
+
+recording="$HOME/Videos/Video_$(date +%Y-%m-%d_%H-%M-%S).mp4"
 
 gpu-screen-recorder \
   -w eDP-1 \
@@ -28,6 +50,7 @@ gpu-screen-recorder \
   -encoder gpu \
   -q very_high \
   -a device:default_output \
-  -o "$HOME/Videos/Video_$(date +%Y-%m-%d_%H-%M-%S).mp4" &
+  -o "$recording" &
 
 echo "$!" > "$pidfile"
+printf '%s\n' "$recording" > "$outputfile"

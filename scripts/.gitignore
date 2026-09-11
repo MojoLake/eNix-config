@@ -3,4 +3,5 @@
 !/.gitignore
 !/macos-key
 !/gpu-screen-recorder-toggle
+!/gpu-screen-recorder-recent
 !/ghostty-new-window

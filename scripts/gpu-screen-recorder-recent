@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly max_age_seconds=10
+readonly max_age_seconds=30
 readonly runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
 readonly state_file="$runtime_dir/gpu-screen-recorder-recent-$(id -u)"
 
@@ -65,7 +65,7 @@ trash_recording() {
 
     if ! is_fresh "$completed_at"; then
         clear_if_current "$completed_at" "$recording"
-        notify "Recording kept" "The 10-second deletion window has passed."
+        notify "Recording kept" "The 30-second deletion window has passed."
         return 1
     fi
 
@@ -96,7 +96,7 @@ show_completion_notification() {
     action="$(
         notify-send \
             --app-name="Screen Recorder" \
-            --expire-time=10000 \
+            --expire-time=30000 \
             --transient \
             "${icon_args[@]}" \
             --action=default=Open \

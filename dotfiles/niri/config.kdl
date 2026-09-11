@@ -386,6 +386,7 @@ binds {
     // Macos like screenshots and screen recording combinations
     Mod+Shift+Ctrl+4 { spawn-sh "grim -g \"$(slurp)\" - | wl-copy" ; }
     Mod+Shift+5 { spawn "gpu-screen-recorder-toggle"; }
+    Mod+Shift+Delete repeat=false { spawn "gpu-screen-recorder-recent" "delete"; }
 
       XF86TouchpadOn { spawn-sh "playerctl previous"; }
       F23 { spawn-sh "playerctl play-pause"; }

@@ -66,6 +66,8 @@
     # For screen recording
     pkgs.gpu-screen-recorder
     pkgs.ffmpeg-headless
+    pkgs.libnotify
+    pkgs.glib
 
     pkgs.pciutils
 
@@ -117,6 +119,11 @@
 
     ".local/bin/gpu-screen-recorder-toggle" = {
         source = ./scripts/gpu-screen-recorder-toggle;
+        executable = true;
+    };
+
+    ".local/bin/gpu-screen-recorder-recent" = {
+        source = ./scripts/gpu-screen-recorder-recent;
         executable = true;
     };
   };
@@ -207,6 +214,11 @@
       background-color = "#991b1b";
       border-color = "#ef4444";
       text-color = "#ffffff";
+    };
+
+    settings."app-name=\"Screen Recorder\" actionable" = {
+      max-icon-size = 160;
+      on-button-middle = ''exec makoctl menu -n "$id" -- walker --dmenu --placeholder "Recording action"'';
     };
   };
 
