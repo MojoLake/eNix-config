@@ -6,6 +6,10 @@
 - Once the user has explicitly requested a change, make all file edits reasonably required to complete that request without asking for permission for each individual file. Keep those edits within the requested scope.
 - Do not commit changes or activate configurations unless the user explicitly asks for that action.
 
+## Commit Messages
+
+Use concise Conventional Commit-style messages, such as `feat: add recent screen recording actions` or `fix: restore recording indicator`. Describe the user-visible change rather than implementation details.
+
 ## Home Manager Commands
 
 Run these commands from the repository root.
