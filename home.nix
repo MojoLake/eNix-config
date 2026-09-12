@@ -17,89 +17,89 @@
 
   # The home.packages option allows you to install Nix packages into your
   # environment.
-  home.packages = [
+  home.packages = with pkgs; [
     # # Adds the 'hello' command to your environment. It prints a friendly
     # # "Hello, world!" when run.
-    pkgs.hello
+    hello
     
-    pkgs.zip
-    pkgs.unzip
+    zip
+    unzip
 
-    pkgs.typst
+    typst
 
-    pkgs.gcc
-    pkgs.gnumake
-    pkgs.meson
-    pkgs.clang-tools
+    gcc
+    gnumake
+    meson
+    clang-tools
 
-    pkgs.zig
-    pkgs.zls
+    zig
+    zls
 
-    pkgs.rustup
+    rustup
 
-    pkgs.python3
-    pkgs.basedpyright
-    pkgs.uv
+    python3
+    basedpyright
+    uv
 
-    pkgs.scala_2_12
+    scala_2_12
 
-    pkgs.brightnessctl
+    brightnessctl
 
-    pkgs.wtype
-    pkgs.swaybg
-    pkgs.wayland-scanner
+    wtype
+    swaybg
+    wayland-scanner
 
-    pkgs.usbutils
-    pkgs.v4l-utils
+    usbutils
+    v4l-utils
 
-    pkgs.jq
+    jq
 
     unstablePkgs.codex
 
-    pkgs.tree
+    tree
 
     # For screenshots to clipboard
-    pkgs.grim
-    pkgs.slurp
-    pkgs.wl-clipboard
+    grim
+    slurp
+    wl-clipboard
 
     # For screen recording
-    pkgs.gpu-screen-recorder
-    pkgs.ffmpeg-headless
-    pkgs.libnotify
-    pkgs.glib
+    gpu-screen-recorder
+    ffmpeg-headless
+    libnotify
+    glib
 
-    pkgs.pciutils
+    pciutils
 
-    pkgs.thunderbird
+    thunderbird
 
-    pkgs.anki
+    anki
 
-    pkgs.xdg-utils
+    xdg-utils
 
-    pkgs.imv
-    pkgs.snapshot
-    pkgs.zathura
-    pkgs.mpv
+    imv
+    snapshot
+    zathura
+    mpv
     unstablePkgs.spotify-player
-    pkgs.playerctl
+    playerctl
 
-    pkgs.thunar
-    pkgs.tumbler
+    thunar
+    tumbler
 
-    pkgs.nodejs_24
-    pkgs.yarn
+    nodejs_24
+    yarn
 
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
     # # fonts?
-    # (pkgs.nerdfonts.override { fonts = [ "FantasqueSansMono" ]; })
+    # (nerdfonts.override { fonts = [ "FantasqueSansMono" ]; })
 
     # # You can also create simple shell scripts directly inside your
     # # configuration. For example, this adds a command 'my-hello' to your
     # # environment:
-    # (pkgs.writeShellScriptBin "my-hello" ''
+    # (writeShellScriptBin "my-hello" ''
     #   echo "Hello, ${config.home.username}!"
     # '')
   ];
