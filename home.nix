@@ -78,6 +78,7 @@
     pkgs.xdg-utils
 
     pkgs.imv
+    pkgs.snapshot
     pkgs.zathura
     pkgs.mpv
     unstablePkgs.spotify-player
