@@ -73,8 +73,6 @@
 
     thunderbird
 
-    anki
-
     xdg-utils
 
     imv
@@ -107,6 +105,8 @@
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
   # plain files is through 'home.file'.
   home.file = {
+    ".agents/skills/anki-cards".source = ./skills/anki-cards;
+
     # # Building this configuration will create a copy of 'dotfiles/screenrc' in
     # # the Nix store. Activating the configuration will then make '~/.screenrc' a
     # # symlink to the Nix store copy.

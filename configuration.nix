@@ -4,6 +4,19 @@
 
 { config, pkgs, ... }:
 
+let
+  ankiWithConnect = pkgs.anki.withAddons [
+    pkgs.ankiAddons.anki-connect
+  ];
+
+  ankiCard = pkgs.writeShellApplication {
+    name = "anki-card";
+    text = ''
+      export PYTHONPATH="${pkgs.anki.lib}/${pkgs.python3.sitePackages}"
+      exec ${pkgs.python3}/bin/python3 ${./scripts/anki-card.py} "$@"
+    '';
+  };
+in
 {
   imports =
     [ # Include the results of the hardware scan.
@@ -58,7 +71,7 @@
     isNormalUser = true;
     description = "Elias Simojoki";
     extraGroups = [ "networkmanager" "wheel" ];
-    packages = with pkgs; [];
+    packages = [ ankiWithConnect ankiCard ];
   };
 
   # Allow unfree packages

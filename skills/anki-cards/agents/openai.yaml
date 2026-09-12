@@ -1,0 +1,4 @@
+interface:
+  display_name: "Anki Cards"
+  short_description: "Safely create and inspect local Anki cards"
+  default_prompt: "Use $anki-cards to add these flashcards to my Anki deck."

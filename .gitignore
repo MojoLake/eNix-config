@@ -9,6 +9,7 @@
 !/hardware-configurationn.nix
 !/home.nix
 !/images/
+!/skills/
 
 # dotfiles
 !/dotfiles/
