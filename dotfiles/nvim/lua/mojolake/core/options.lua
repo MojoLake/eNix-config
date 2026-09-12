@@ -2,6 +2,7 @@ vim.opt.mouse = "a"
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.title = true
+vim.opt.splitright = true
 
 vim.opt.expandtab = true
 vim.opt.shiftwidth = 4
