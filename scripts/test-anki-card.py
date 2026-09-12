@@ -37,6 +37,7 @@ class FakeAnkiConnectHandler(BaseHTTPRequestHandler):
             "modelFieldNames": ["Front", "Back"],
             "canAddNotesWithErrorDetail": [{"canAdd": True}],
             "addNotes": [123456789],
+            "createDeck": 234567890,
             "sync": None,
         }
         result = responses[action]
@@ -158,6 +159,27 @@ class AnkiCardIntegrationTests(unittest.TestCase):
         basic = next(item for item in result["noteTypes"] if item["name"] == "Basic")
         self.assertEqual(basic["fields"], ["Front", "Back"])
 
+    def test_headless_create_deck_is_idempotent(self) -> None:
+        first = self.run_cli("create-deck", "General::CS::History")
+        self.assertEqual(first["route"], "backend")
+        self.assertTrue(first["created"])
+        self.assertTrue(first["backupCreated"])
+        self.assertGreater(first["deckId"], 0)
+
+        repeated = self.run_cli("create-deck", "General::CS::History")
+        self.assertFalse(repeated["created"])
+        self.assertIsNone(repeated["backupCreated"])
+        self.assertEqual(repeated["deckId"], first["deckId"])
+
+        schema = self.run_cli("schema")
+        self.assertIn("General", schema["decks"])
+        self.assertIn("General::CS", schema["decks"])
+        self.assertIn("General::CS::History", schema["decks"])
+
+    def test_create_deck_rejects_empty_path_components(self) -> None:
+        result = self.run_cli("create-deck", "General::::History", expected_code=1)
+        self.assertIn("non-empty components", result["error"])
+
     def test_batch_validation_happens_before_any_note_is_added(self) -> None:
         payload = {
             "request_id": "invalid-batch",
@@ -242,6 +264,30 @@ class AnkiCardIntegrationTests(unittest.TestCase):
                 "addNotes",
                 "sync",
             ],
+        )
+
+    def test_create_deck_uses_ankiconnect_when_available(self) -> None:
+        FakeAnkiConnectHandler.actions = []
+        server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAnkiConnectHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = self.run_cli(
+                "create-deck",
+                "General::CS::History",
+                connect_url=f"http://127.0.0.1:{server.server_port}",
+            )
+        finally:
+            server.shutdown()
+            thread.join()
+            server.server_close()
+        self.assertEqual(result["route"], "ankiconnect")
+        self.assertTrue(result["created"])
+        self.assertEqual(result["deckId"], 234567890)
+        self.assertIsNone(result["backupCreated"])
+        self.assertEqual(
+            FakeAnkiConnectHandler.actions,
+            ["version", "getActiveProfile", "deckNames", "createDeck"],
         )
 
 

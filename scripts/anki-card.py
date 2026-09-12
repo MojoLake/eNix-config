@@ -724,6 +724,72 @@ def command_add(
         return result
 
 
+def validate_deck_name(name: str) -> None:
+    if not name.strip():
+        raise AnkiCardError("deck name must not be empty")
+    if name != name.strip():
+        raise AnkiCardError("deck name must not start or end with whitespace")
+    if any(not component.strip() for component in name.split("::")):
+        raise AnkiCardError(
+            "deck name must contain non-empty components separated by '::'"
+        )
+
+
+def command_create_deck(
+    args: argparse.Namespace, connect: AnkiConnect, base: Path
+) -> dict[str, Any]:
+    name = args.deck_name
+    validate_deck_name(name)
+    route, profile = select_route(connect, base, args.profile)
+    backup_created: bool | None = None
+
+    if route == "ankiconnect":
+        deck_names = connect.invoke("deckNames")
+        if not isinstance(deck_names, list) or not all(
+            isinstance(deck_name, str) for deck_name in deck_names
+        ):
+            raise AnkiCardError("AnkiConnect returned invalid deck names")
+        existing = next(
+            (
+                deck_name
+                for deck_name in deck_names
+                if deck_name.casefold() == name.casefold()
+            ),
+            None,
+        )
+        deck_name = existing or name
+        # createDeck is idempotent and is also the only AnkiConnect API that
+        # exposes the deck ID for an existing deck.
+        deck_id = connect.invoke("createDeck", {"deck": deck_name})
+        created = existing is None
+    else:
+        with open_collection(base, profile) as col:
+            existing = col.decks.by_name(name)
+            if existing is not None:
+                deck_name = existing["name"]
+                deck_id = int(existing["id"])
+                created = False
+            else:
+                backup_created = ensure_backup(col, base, profile)
+                result = col.decks.add_normal_deck_with_name(name)
+                deck_name = name
+                deck_id = int(result.id)
+                created = True
+
+    if not isinstance(deck_id, int) or isinstance(deck_id, bool) or deck_id <= 0:
+        raise AnkiCardError(f"Anki returned an invalid deck ID: {deck_id!r}")
+    return {
+        "ok": True,
+        "operation": "create-deck",
+        "route": route,
+        "profile": profile,
+        "deck": deck_name,
+        "deckId": deck_id,
+        "created": created,
+        "backupCreated": backup_created,
+    }
+
+
 def connect_schema(connect: AnkiConnect) -> tuple[list[str], list[dict[str, Any]]]:
     decks = sorted(connect.invoke("deckNames"), key=str.casefold)
     models = sorted(connect.invoke("modelNames"), key=str.casefold)
@@ -969,7 +1035,7 @@ def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         prog="anki-card",
         description=(
-            "Safely inspect and add Anki notes. Uses AnkiConnect when the GUI is "
+            "Safely inspect and modify Anki. Uses AnkiConnect when the GUI is "
             "already open and Anki's backend directly otherwise."
         ),
     )
@@ -996,6 +1062,10 @@ def parser() -> argparse.ArgumentParser:
     subcommands = result.add_subparsers(dest="command", required=True)
     subcommands.add_parser("status", help="show the selected access route and profile")
     subcommands.add_parser("schema", help="list decks, note types, and fields as JSON")
+    create_deck = subcommands.add_parser(
+        "create-deck", help="create a deck or nested deck if it does not exist"
+    )
+    create_deck.add_argument("deck_name")
     add = subcommands.add_parser(
         "add", help="add a JSON batch read from standard input"
     )
@@ -1043,6 +1113,8 @@ def main() -> int:
         with exclusive_lock():
             if args.command == "add":
                 output = command_add(args, connect, args.anki_base)
+            elif args.command == "create-deck":
+                output = command_create_deck(args, connect, args.anki_base)
             elif args.command == "schema":
                 output = command_schema(args, connect, args.anki_base)
             elif args.command == "get":

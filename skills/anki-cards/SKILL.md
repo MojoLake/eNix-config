@@ -1,6 +1,6 @@
 ---
 name: anki-cards
-description: Safely create, inspect, sync, and undo cards in Elias's local Anki collection with the anki-card command. Use when asked to add Anki cards, list decks or note types, verify locally created cards, explicitly sync Anki, or undo an agent-created card batch.
+description: Safely create decks, add and inspect cards, sync, and undo cards in Elias's local Anki collection with the anki-card command. Use when asked to create an Anki deck, add Anki cards, list decks or note types, verify locally created cards, explicitly sync Anki, or undo an agent-created card batch.
 ---
 
 # Anki Cards
@@ -15,6 +15,17 @@ stop Anki for this skill.
   known. Its JSON response includes every deck and note type with its fields.
 - Run `anki-card get NOTE_ID...` to verify notes by ID.
 - Run `anki-card status` only when diagnosing route or profile selection.
+
+## Create decks
+
+- Create a deck only when Elias explicitly requests it; do not create one merely
+  because no existing deck is a perfect match.
+- Run `anki-card create-deck 'General::CS::History'` to create a deck or nested
+  deck. Anki uses `::` to separate levels.
+- The command is idempotent: `created` is false when the deck already exists.
+- Report the deck name, deck ID, route, profile, and whether it was created. A
+  headless creation makes a pre-change backup; AnkiConnect creation reports
+  `backupCreated` as null because Anki owns the open collection.
 
 ## Add cards
 
