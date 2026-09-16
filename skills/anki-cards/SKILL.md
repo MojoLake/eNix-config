@@ -14,47 +14,53 @@ stop Anki for this skill.
 Elias uses Anki mainly to awaken a small, useful brain signal, not to recite an
 explanation. When proposing or writing cards:
 
-- Do not formulate cards for material he has not yet understood. Teach or clarify
-  it first.
-- Apply the minimum-information principle aggressively: test one fact, term,
-  distinction, or causal link per card.
-- Prefer a short cue and an even shorter answer, often a word or phrase. If an
-  answer needs several clauses or a list, split or omit the card.
-- Require the intended answer to be unique at the cue's stated level of
-  specificity. If a broader category, narrower term, synonym, or alternative
-  answer would also be correct, tighten the cue or explicitly accept the
-  equivalents. Never rely on the learner guessing which answer was intended.
-- Prefer basics, fundamentals, and durable high-value knowledge over comprehensive
-  coverage or incidental detail. Do not make a card merely because a fact was
-  discussed; keep it only if recalling it helps reconstruct the useful mental
-  model.
-- Preserve the user's requested wording and note type when supplied; these take
-  precedence over the defaults below unless they would make the card incorrect.
-- Use a `Basic (and reversed)` note for a foundational mapping when recall in
-  both directions is useful. Evaluate each generated direction as its own card:
-  both fronts must independently cue a unique answer. For example, “a hardware
-  description language” is not a safe reverse cue for “Verilog” because VHDL is
-  also correct; add distinguishing context.
-- Otherwise prefer a cloze for a compact declarative relationship, using Anki
-  syntax such as `Raw score before softmax is called a {{c1::logit}}`; use a
-  direct basic question when a cloze would be unnatural. Do not make clozes by
-  merely deleting arbitrary words from verbose prose.
-- Avoid broad prompts such as “explain,” compound comparison questions, sets, and
-  enumerations. Include the domain in the cue, such as “In LLM inference,” when
-  the prompt would otherwise be ambiguous or invite answers from other domains.
+- Do not formulate cards for material he has not understood. Prefer fundamental,
+  durable knowledge that helps reconstruct a useful mental model; omit a fact
+  merely mentioned in conversation.
+- Apply the minimum-information principle: test one fact, term, distinction, or
+  causal link per generated card. Treat `and`, semicolons, multiple requested
+  outputs, or multiple independent verbs in an answer as warnings that the note
+  should be split. Do not combine an acronym expansion with how the thing works.
+- Judge the cue from a cold start. The visible front must naturally evoke one
+  intended piece of knowledge without requiring the learner to remember the
+  card's wording. If several materially different answers fit, rewrite it.
+- Give cards a recognizable structure. Use `TERM?` for an acronym expansion or
+  short explanation, for example `SIMT?` → `single instruction, multiple
+  threads`. Here `?` means “expand or explain this term,” but each note should
+  choose only one of those retrieval targets rather than answering both.
+- Use parenthetical direction labels to specify the expected answer language.
+  For example, `el sol (fi.)` → `aurinko`, while `aurinko (esp.)` → `el sol`.
+  The label names the language to answer in, not the language shown.
+- Use a cloze only when the remaining sentence semantically constrains the exact
+  missing item. A grammatical blank with many plausible completions is a bad
+  cue: `A flip-flop stores {{...}}` could elicit many valid answers.
+- Hide the smallest useful unit in a cloze—normally one word, symbol, number, or
+  short established term. Keep qualifiers, relationships, and explanatory text
+  visible. If the hidden text is a sentence fragment or substantial explanation,
+  use a Basic card instead.
+- There is no one-cloze-per-note rule. A note may contain two or more deletions:
+  use different cloze numbers when each should generate its own retrieval card,
+  such as `{{c1::causal}} {{c2::masking}}`; use the same number for multiple
+  tightly linked fragments that should be recalled together. Judge the simplicity
+  and uniqueness of each generated card, not the number of deletions in the note.
+- Prefer a compact, self-contained relational sentence with several small clozes
+  over a terse Basic prompt when each visible context strongly constrains its
+  deletion. For example: `If layer weights are too large to fit on-chip
+  {{c2::SRAM}}, they are processed in {{c1::tiles}}.` Do not default to Basic
+  merely because the underlying idea is explanatory.
+- Use Basic when the answer is naturally a short explanation and equivalent
+  wording should count as correct. Use `Basic (and reversed)` only when both
+  directions are useful and each direction independently has one clear answer.
+- Add domain context or an expected-answer cue when needed to prevent interference.
+  Do not introduce unfamiliar terminology solely to make a card.
 - Several atomic cards may approach an important idea from different directions;
   this useful redundancy is preferable to one comprehensive card.
-- Put optional explanation, source, or date outside the text that must be recalled
-  when the note type has suitable fields. Date-stamp volatile knowledge.
-- When proposing cards, identify the intended note type and perform a final pass
-  over every card that will actually be generated—including both directions of
-  reversed notes—for ambiguous cues, low-value facts, compound answers, and
-  accidental sets.
-
-For example, “HBM is a form of ...” is ambiguous because both “memory” and “DRAM”
-are correct. Prefer the precise cloze `HBM uses {{c1::DRAM}} memory cells.` Also
-replace “What is the difference between an attention head, multi-head attention,
-and a transformer block?” with separate atomic cues.
+- Preserve user-supplied wording and note types unless incorrect. Put optional
+  explanations, sources, and dates outside the recalled text when fields permit;
+  date-stamp volatile knowledge.
+- Before proposing or adding cards, inspect every card that will actually be
+  generated—including each cloze and both directions of reversed notes—for an
+  ambiguous cue, oversized hidden text, low-value fact, or accidental set.
 
 ## Inspect the collection
 
