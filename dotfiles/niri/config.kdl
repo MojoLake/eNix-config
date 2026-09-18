@@ -384,6 +384,7 @@ binds {
     Mod+T { spawn "wtype" "-M" "ctrl" "t" "-m" "ctrl"; }
     Mod+W { spawn "wtype" "-M" "ctrl" "w" "-m" "ctrl"; }
 
+    Mod+A { spawn "/home/mojolake/eNix-config/scripts/macos-key" "a"; }
     Mod+C { spawn "/home/mojolake/eNix-config/scripts/macos-key" "c"; }
     Mod+V { spawn "/home/mojolake/eNix-config/scripts/macos-key" "v"; }
 

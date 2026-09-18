@@ -216,6 +216,7 @@ in
       window-inherit-working-directory = true;
 
       keybind = [
+        "ctrl+shift+a=select_all"
       ];
     };
   };
