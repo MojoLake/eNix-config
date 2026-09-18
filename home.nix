@@ -1,5 +1,17 @@
 { config, pkgs, unstablePkgs, ... }:
 
+let
+  kindleMail = pkgs.writeShellApplication {
+    name = "kindle-mail";
+    runtimeInputs = [
+      pkgs.libsecret
+      pkgs.python3
+    ];
+    text = ''
+      exec ${pkgs.python3}/bin/python3 ${./scripts/kindle-mail.py} "$@"
+    '';
+  };
+in
 {
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
@@ -54,7 +66,7 @@
 
     jq
 
-    unstablePkgs.codex
+    kindleMail
 
     tree
 
@@ -106,6 +118,7 @@
   # plain files is through 'home.file'.
   home.file = {
     ".agents/skills/anki-cards".source = ./skills/anki-cards;
+    ".agents/skills/paper-to-kindle".source = ./skills/paper-to-kindle;
 
     # # Building this configuration will create a copy of 'dotfiles/screenrc' in
     # # the Nix store. Activating the configuration will then make '~/.screenrc' a
@@ -161,6 +174,28 @@
 
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
+
+  programs.codex = {
+    enable = true;
+    package = unstablePkgs.codex;
+
+    settings = {
+      mcp_servers.kindle_mail = {
+        command = "${kindleMail}/bin/kindle-mail";
+        args = [ "mcp" ];
+        enabled = true;
+        required = false;
+        enabled_tools = [
+          "check_kindle_mail_setup"
+          "preview_kindle_delivery"
+          "send_to_kindle"
+        ];
+        default_tools_approval_mode = "writes";
+
+        tools.send_to_kindle.approval_mode = "prompt";
+      };
+    };
+  };
 
   # <3 hashimoto
   programs.ghostty = {
