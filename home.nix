@@ -177,7 +177,13 @@ in
 
   programs.codex = {
     enable = true;
-    package = unstablePkgs.codex;
+    # Trust the launch directory without writing to the Home Manager-owned config.
+    package = pkgs.writeShellScriptBin "codex" ''
+      trusted_path=$(${pkgs.jq}/bin/jq -rn --arg path "$PWD" '$path | tojson')
+      exec ${unstablePkgs.codex}/bin/codex \
+        -c "projects={$trusted_path={trust_level=\"trusted\"}}" \
+        "$@"
+    '';
 
     settings = {
       mcp_servers.kindle_mail = {
