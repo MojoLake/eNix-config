@@ -194,6 +194,8 @@ in
 
         tools.send_to_kindle.approval_mode = "prompt";
       };
+
+      projects."/home/mojolake".trust_level = "trusted";
     };
   };
 
