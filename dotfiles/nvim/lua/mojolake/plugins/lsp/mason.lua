@@ -18,7 +18,7 @@ return {
                 "zls",
                 "tinymist",
             },
-            automatic_installation = true,
+            automatic_installation = { exclude = { "ols" } },
         })
 
     end,

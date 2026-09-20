@@ -47,6 +47,8 @@ in
     zig
     zls
 
+    ols
+
     rustup
 
     python3
