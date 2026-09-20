@@ -1,125 +1,131 @@
 ---
 name: anki-cards
-description: Formulate and safely manage simple Anki cards in Elias's local collection with the anki-card command. Use when asked to propose or create cards, create a deck, inspect cards or schemas, explicitly sync Anki, or undo an agent-created card batch.
+description: Suggest or add Anki cards for Elias; inspect collections, create requested decks, explicitly sync, or undo agent batches using anki-card.
 ---
 
 # Anki Cards
 
-Use the `anki-card` command. It automatically uses AnkiConnect when the Anki GUI
-is already open and Anki's official backend when it is closed. Never start or
-stop Anki for this skill.
+## Formulation
 
-## Formulate cards for Elias
+Prefer contextual clozes with short, unambiguous answers. Test one idea per
+generated card, allowing multiple clozes per note. Use Basic for causal questions,
+commands, and vocabulary; reverse only useful, unambiguous pairs. Avoid yes/no
+questions, essays, padding, and unfamiliar material. Unselected cards aren't
+necessarily rejected. Preserve supplied wording/types unless incorrect; put
+qualifications in Back Extra. Review each generated card for ambiguity and value.
+Show cloze syntax or front/back pairs. Language labels indicate answer language.
 
-Elias uses Anki mainly to awaken a small, useful brain signal, not to recite an
-explanation. When proposing or writing cards:
+## Formulation examples
 
-- Do not formulate cards for material he has not understood. Prefer fundamental,
-  durable knowledge that helps reconstruct a useful mental model.
-- Prefer transferable mechanisms over board-, vendor-, product-, or
-  project-specific facts unless Elias asks to remember the specific object.
-- Do not expand the syllabus. When carding a discussion, propose only ideas
-  Elias expressed or explicitly worked through. Teach adjacent concepts before
-  proposing cards about them.
-- Apply the minimum-information principle: test one fact, term, distinction, or
-  causal link per generated card. Treat `and`, semicolons, multiple requested
-  outputs, or multiple independent verbs in an answer as warnings that the note
-  should be split.
-- Judge the cue from a cold start. The visible front must naturally evoke one
-  intended piece of knowledge without requiring the learner to remember the
-  card's wording. If several materially different answers fit, rewrite it.
-- Give cards a recognizable structure. Use `TERM?` for an acronym expansion or
-  short explanation, for example `SIMT?` → `single instruction, multiple
-  threads`. Here `?` means “expand or explain this term,” but each note should
-  choose only one of those retrieval targets rather than answering both.
-- Use parenthetical direction labels to specify the expected answer language.
-  For example, `el sol (fi.)` → `aurinko`, while `aurinko (esp.)` → `el sol`.
-  The label names the language to answer in, not the language shown.
-- Use clozes often. A grammatical blank with many plausible completions is a bad
-  cue: `A flip-flop stores {{...}}` could elicit many valid answers.
-- Hide the smallest useful unit in a cloze—normally one word, symbol, number, or
-  short established term. Keep qualifiers, relationships, and explanatory text
-  visible.
-- There is no one-cloze-per-note rule. A note may contain two or more deletions.
-  Use different cloze numbers when each should generate its own retrieval card,
-  such as `{{c1::causal}} {{c2::masking}}`.
-- Prefer a compact, self-contained relational sentence with several small clozes
-  over a terse Basic prompt when each visible context strongly constrains its
-  deletion. Do not default to Basic merely because the underlying idea is
-  explanatory.
-- Use Basic when the answer is naturally a short explanation and equivalent
-  wording should count as correct. Use `Basic (and reversed)` only when both
-  directions are useful and each direction independently has one clear answer.
-- Add domain context or an expected-answer cue when needed to prevent interference.
-  Do not introduce unfamiliar terminology solely to make a card.
-- Several atomic cards may approach an important idea from different directions;
-  this useful redundancy is preferable to one comprehensive card.
-- Preserve user-supplied wording and note types unless incorrect. Put optional
-  explanations, sources, and dates outside the recalled text when fields permit;
-  date-stamp volatile knowledge.
-- Before proposing or adding cards, inspect every card that will actually be
-  generated—including each cloze and both directions of reversed notes—for an
-  ambiguous cue, oversized hidden text, low-value fact, or accidental set.
-- When examples would help with formulation, read
-  [references/formulation-examples.md](references/formulation-examples.md).
+These examples come from Elias's existing collection and reflect card shapes he
+has approved. Use them as patterns, not as a catalog of facts that must be added
+to Anki or wording that must be copied literally.
 
-## Inspect the collection
+### Accepted from the electronics discussion
 
-- Run `anki-card schema` when the deck, note type, or field names are not already
-  known. Its JSON response includes every deck and note type with its fields.
-- Run `anki-card get NOTE_ID...` to verify notes by ID.
-- Run `anki-card status` only when diagnosing route or profile selection.
+- `Implementing a communication protocol by directly controlling pins in software is called {{c1::bit-banging}}.`
+- `“Asynchronous” in UART means there is no shared {{c1::clock signal}} between the devices.`
+- `To sample bits at the right intervals, UART sender and receiver must agree on the {{c1::bit rate}} beforehand.`
+- `A UART receiver uses the {{c1::start bit}} as the timing reference for receiving a character.`
+- Basic: `Why does a UART receiver sample near the middle of each bit?` →
+  `To leave a timing margin from the transitions between bits.`
+- `UART {{c1::Universal asynchronous receiver-transmitter}} was one of the {{c2::earliest}} computer {{c3::communication}} devices.`
+  Back Extra qualifies “earliest”: Bell dates his design to 1961–62;
+  computer communication interfaces existed before UART.
+- `SPI's ({{c1::Serial Peripheral Interface}}) original specification was from {{c2::Motorola}} in the early {{c3::1980's}}.`
 
-## Create decks
+### Technical
 
-- Create a deck only when Elias explicitly requests it; do not create one merely
-  because no existing deck is a perfect match.
-- Run `anki-card create-deck 'General::CS::History'` to create a deck or nested
-  deck. Anki uses `::` to separate levels.
-- The command is idempotent: `created` is false when the deck already exists.
-- Report the deck name, deck ID, route, profile, and whether it was created. A
-  headless creation makes a pre-change backup; AnkiConnect creation reports
-  `backupCreated` as null because Anki owns the open collection.
+- `A Git branch is a {{c1::pointer}} to a {{c2::commit}}.`
+- `Deleting a branch deletes {{c1::the pointer}}, not {{c2::the commits}}.`
+- `A {{c1::process}} owns resources such as the address space, while a
+  {{c2::thread}} is an execution stream.`
+- `The OS scheduler usually schedules {{c1::threads}}, not
+  {{c1::processes}}.` Use the same cloze number when the contrasted fragments
+  should be recalled together.
+- `A CPU gets the address of its next instruction from the {{c1::program
+  counter (PC)}}.`
+- `DHCP automatically assigns {{c1::IP addresses}} and network configuration to
+  devices joining a network.`
+- Basic: `Create the symlink a.md → b.md (command)` → `ln -s b.md a.md`.
 
-## Add cards
+### Revising weak conceptual prompts
 
-- Treat an explicit request to add cards as authorization to create exactly
-  those cards; do not ask for a second confirmation.
-- Pass one JSON object to `anki-card add` on standard input. Use this shape:
+These are illustrative revisions, not previously approved cards. Preserve the
+useful relationship in the visible text and make the missing concept small.
 
-  ```json
-  {
-    "request_id": "stable-id-for-safe-retries",
-    "sync": false,
-    "notes": [
-      {
-        "deck": "General",
-        "note_type": "Basic",
-        "fields": {"Front": "Question", "Back": "Answer"},
-        "tags": []
-      }
-    ]
-  }
-  ```
+- Weak: `Does one CPU instruction always take one clock cycle?` → `No ...`
+  tests recognition. If pipelining was understood, a useful target is:
+  `CPU {{c1::pipelining}} overlaps the processing of multiple instructions.`
+- Weak: `Does the clock supply the energy that powers a register?` → `No ...`
+  becomes: `In a digital circuit, the power supply provides energy; the clock
+  controls the {{c1::timing}} of register updates.`
+- Weak: `How does SPI differ from UART regarding timing?` can become:
+  `{{c1::SPI}} carries a separate clock signal; {{c2::UART}} uses a pre-agreed
+  bit rate without a separate clock signal.` Each deletion tests one protocol
+  against its timing mechanism.
+- A direct causal question can remain Basic: `Why can an excessively fast CPU
+  clock cause incorrect results?` → `Registers may capture results before the
+  logic settles.` Do not force this into an ambiguous one-word blank.
 
-- Construct JSON with `jq` or another JSON encoder so text is escaped correctly.
-- Use the same stable `request_id` when retrying an uncertain request. If it is
-  omitted, `anki-card` derives one from the complete batch.
-- Omit `tags` unless Elias requested tags. Do not request duplicates; the
-  command rejects them.
-- Preserve card wording supplied by Elias. Generate or rewrite card content
-  only when he asks for that editorial work.
-- Set `sync` to true, or run `anki-card sync`, only when Elias explicitly asks
-  to synchronize.
-- Check `ok`, `added`, `alreadyApplied`, `noteIds`, `route`, and `profile` in the
-  response. Exit code 3 means the notes were added locally but the requested
-  post-add sync failed; do not repeat the request under a new ID.
-- Report the destination deck, number of notes created, note IDs, route, and any
-  rejected or duplicate notes.
+### Mathematics
 
-## Undo a recorded batch
+- `The {{c1::characteristic polynomial}} of A is {{c2::det(xI − A)}}.`
+- `The normal derivative {{c1::∂u/∂n}} equals {{c2::∇u · n}}.` Put `It is
+  the component of the gradient in the normal direction.` in Back Extra.
+- `In Lᵖ spaces, functions differing only on a set of {{c1::measure zero}} are
+  considered {{c2::the same function}}, because the {{c3::Lebesgue integral
+  ignores such sets}}.`
+- `A {{c1::Banach space}} is a {{c2::complete normed vector space}}.`
+- `A {{c1::normal operator}} satisfies {{c2::VV* = V*V}}.` Put `Equivalently,
+  it commutes with its adjoint.` in Back Extra.
+- `In Lu = f, f is the {{c1::source term}}; when f = 0, the equation is
+  {{c2::homogeneous}}.`
 
-- Run `anki-card undo REQUEST_ID` only when Elias explicitly asks to remove that
-  batch. The command refuses to delete notes edited since creation unless
-  `--force` is supplied; never add `--force` without explicit authorization.
-- Add `--sync` only if Elias explicitly requests synchronization.
+### Languages
+
+- Basic: `vakiintua (esp.)` → `consolidarse`.
+- Basic: `harhaanjohtava (eng.)` → `misleading`.
+- Basic: `intentional (synonym)` → `deliberate`.
+- Basic: `latent (etym., meaning)` → `latere — “to lie hidden”`.
+- Basic: `latent (etym., language)` → `Latin`.
+- Basic: `välittömästi (esp.; not inmediatamente)` → `enseguida`.
+- Basic: `Te agradezco que me pagues la mitad.` → `Kiitän sinua siitä,
+  että maksat minulle puolet.`
+
+### Behaviour and personal cues
+
+- `If something is scary, {{c1::do it}}.`
+
+### General knowledge and causal understanding
+
+- `{{c1::Great Britain}} consists of England, Scotland, and Wales; the
+  {{c2::United Kingdom}} also includes Northern Ireland.`
+- Basic: `A.D.?` → `anno Domini`.
+- Basic: `Why was muscle power the main source of mechanical power before
+  electricity?` → `The body was the only widely available general-purpose
+  energy converter.`
+
+## Collection operations
+
+Use `anki-card`; it selects AnkiConnect or the closed-GUI backend automatically.
+Never start/stop Anki. Run `schema` for unknown decks/types/fields, `get NOTE_ID...`
+to verify, and `status` for route/profile diagnosis.
+
+Add explicitly requested cards without reconfirmation. Pass encoded JSON on stdin
+to `anki-card add`:
+
+```json
+{"request_id":"stable-batch-id","sync":false,"notes":[{"deck":"General","note_type":"Basic","fields":{"Front":"Question","Back":"Answer"}}]}
+```
+
+Keep request IDs stable on retries. Omit tags unless requested; don't request
+duplicates. Sync only when explicitly requested (`sync:true` or `anki-card sync`).
+Check `ok`, `added`, `alreadyApplied`, `noteIds`, `route`, and `profile`.
+Exit 3 means added locally but sync failed: don't re-add under another ID.
+Report deck, count, note IDs, route/profile, and rejections.
+
+Only on explicit request: `anki-card create-deck 'General::CS::History'`
+(idempotent; report name/ID, created, route/profile), or
+`anki-card undo REQUEST_ID`. Undo needs separate explicit authorization for
+`--force`; add `--sync` only when requested.
