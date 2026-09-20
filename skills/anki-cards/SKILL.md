@@ -15,12 +15,16 @@ Elias uses Anki mainly to awaken a small, useful brain signal, not to recite an
 explanation. When proposing or writing cards:
 
 - Do not formulate cards for material he has not understood. Prefer fundamental,
-  durable knowledge that helps reconstruct a useful mental model; omit a fact
-  merely mentioned in conversation.
+  durable knowledge that helps reconstruct a useful mental model.
+- Prefer transferable mechanisms over board-, vendor-, product-, or
+  project-specific facts unless Elias asks to remember the specific object.
+- Do not expand the syllabus. When carding a discussion, propose only ideas
+  Elias expressed or explicitly worked through. Teach adjacent concepts before
+  proposing cards about them.
 - Apply the minimum-information principle: test one fact, term, distinction, or
   causal link per generated card. Treat `and`, semicolons, multiple requested
   outputs, or multiple independent verbs in an answer as warnings that the note
-  should be split. Do not combine an acronym expansion with how the thing works.
+  should be split.
 - Judge the cue from a cold start. The visible front must naturally evoke one
   intended piece of knowledge without requiring the learner to remember the
   card's wording. If several materially different answers fit, rewrite it.
@@ -31,23 +35,18 @@ explanation. When proposing or writing cards:
 - Use parenthetical direction labels to specify the expected answer language.
   For example, `el sol (fi.)` → `aurinko`, while `aurinko (esp.)` → `el sol`.
   The label names the language to answer in, not the language shown.
-- Use a cloze only when the remaining sentence semantically constrains the exact
-  missing item. A grammatical blank with many plausible completions is a bad
+- Use clozes often. A grammatical blank with many plausible completions is a bad
   cue: `A flip-flop stores {{...}}` could elicit many valid answers.
 - Hide the smallest useful unit in a cloze—normally one word, symbol, number, or
   short established term. Keep qualifiers, relationships, and explanatory text
-  visible. If the hidden text is a sentence fragment or substantial explanation,
-  use a Basic card instead.
-- There is no one-cloze-per-note rule. A note may contain two or more deletions:
-  use different cloze numbers when each should generate its own retrieval card,
-  such as `{{c1::causal}} {{c2::masking}}`; use the same number for multiple
-  tightly linked fragments that should be recalled together. Judge the simplicity
-  and uniqueness of each generated card, not the number of deletions in the note.
+  visible.
+- There is no one-cloze-per-note rule. A note may contain two or more deletions.
+  Use different cloze numbers when each should generate its own retrieval card,
+  such as `{{c1::causal}} {{c2::masking}}`.
 - Prefer a compact, self-contained relational sentence with several small clozes
   over a terse Basic prompt when each visible context strongly constrains its
-  deletion. For example: `If layer weights are too large to fit on-chip
-  {{c2::SRAM}}, they are processed in {{c1::tiles}}.` Do not default to Basic
-  merely because the underlying idea is explanatory.
+  deletion. Do not default to Basic merely because the underlying idea is
+  explanatory.
 - Use Basic when the answer is naturally a short explanation and equivalent
   wording should count as correct. Use `Basic (and reversed)` only when both
   directions are useful and each direction independently has one clear answer.
@@ -61,6 +60,8 @@ explanation. When proposing or writing cards:
 - Before proposing or adding cards, inspect every card that will actually be
   generated—including each cloze and both directions of reversed notes—for an
   ambiguous cue, oversized hidden text, low-value fact, or accidental set.
+- When examples would help with formulation, read
+  [references/formulation-examples.md](references/formulation-examples.md).
 
 ## Inspect the collection
 
