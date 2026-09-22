@@ -239,6 +239,8 @@ in
       previous = [ "Up" "ctrl k" ];
     };
     
+    elephant.provider.desktopapplications.settings.window_integration = true;
+
     elephant.providers = [
       "desktopapplications"
       "calc"
