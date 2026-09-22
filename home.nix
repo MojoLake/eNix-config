@@ -341,6 +341,7 @@ in
     ];
 
     shellAliases = {
+      com = "g++ -Wall -fsanitize=address";
       rebuild-all = "sudo nixos-rebuild switch --flake ~/eNix-config#nixos && home-manager switch --flake ~/eNix-config#mojolake";
       vi = "nvim";
       open = "xdg-open";
