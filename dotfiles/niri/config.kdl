@@ -3,6 +3,11 @@
 // Check the wiki for a full description of the configuration:
 // https://niri-wm.github.io/niri/Configuration:-Introduction
 
+// Allow notification actions to focus apps without a valid input serial.
+debug {
+    honor-xdg-activation-with-invalid-serial
+}
+
 // Input device configuration.
 // Find the full list of options on the wiki:
 // https://niri-wm.github.io/niri/Configuration:-Input
