@@ -357,6 +357,20 @@ in
   };
 
 
+  xdg.configFile."wifi-manager/config.toml" = {
+    text = ''
+      position = "top-right"
+      margin_top = 32
+      margin_right = 8
+      show_on_start = false
+    '';
+    onChange = ''
+      if ${pkgs.systemd}/bin/systemctl --user is-active --quiet wifi-manager.service; then
+        ${wifiManager}/bin/wifi-manager --reload
+      fi
+    '';
+  };
+
   systemd.user.services.wifi-manager = {
     Unit = {
       Description = "Wi-Fi and Bluetooth control panel";
