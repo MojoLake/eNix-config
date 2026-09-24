@@ -391,7 +391,10 @@ in
     "${config.programs.ghostty.package}/share/systemd/user/app-com.mitchellh.ghostty.service";
 
   xdg.configFile."waybar/config.jsonc" = {
-    source = ./dotfiles/waybar/config.jsonc;
+    text = builtins.replaceStrings
+      [ "@wifi-manager@" ]
+      [ "${wifiManager}/bin/wifi-manager" ]
+      (builtins.readFile ./dotfiles/waybar/config.jsonc);
     force = true;
     onChange = "${pkgs.systemd}/bin/systemctl --user try-restart waybar.service";
   };

@@ -42,7 +42,7 @@
   "network": {
     "format-wifi": "Wi-Fi",
     "format-disconnected": "No Wi-Fi",
-    "on-click": "wifi-manager --toggle"
+    "on-click": "@wifi-manager@ --toggle"
   },
 
   "battery": {
