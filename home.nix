@@ -364,11 +364,7 @@ in
       margin_right = 8
       show_on_start = false
     '';
-    onChange = ''
-      if ${pkgs.systemd}/bin/systemctl --user is-active --quiet wifi-manager.service; then
-        ${wifiManager}/bin/wifi-manager --reload
-      fi
-    '';
+    onChange = "${pkgs.systemd}/bin/systemctl --user try-restart wifi-manager.service";
   };
 
   systemd.user.services.wifi-manager = {
