@@ -59,6 +59,8 @@ in
 
     brightnessctl
     wifiManager
+    adwaita-icon-theme
+    nerd-fonts.symbols-only
 
     wtype
     swaybg
@@ -357,12 +359,26 @@ in
   };
 
 
+  fonts.fontconfig.enable = true;
+
   xdg.configFile."wifi-manager/config.toml" = {
     text = ''
       position = "top-right"
       margin_top = 32
       margin_right = 8
       show_on_start = false
+      system_icon = "computer-symbolic"
+    '';
+    onChange = "${pkgs.systemd}/bin/systemctl --user try-restart wifi-manager.service";
+  };
+
+  xdg.configFile."wifi-manager/style.css" = {
+    text = ''
+      /* Keep quick-control icons readable against the panel's dark background. */
+      .cc-quick-controls button,
+      .cc-quick-controls scale value {
+        color: rgba(255, 255, 255, 0.92);
+      }
     '';
     onChange = "${pkgs.systemd}/bin/systemctl --user try-restart wifi-manager.service";
   };
