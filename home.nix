@@ -399,7 +399,10 @@ in
 
   # configure niri through its own config file
   xdg.configFile."niri/config.kdl" = {
-    source = ./dotfiles/niri/config.kdl;
+    text = builtins.replaceStrings
+      [ "@wifi-manager@" ]
+      [ "${wifiManager}/bin/wifi-manager" ]
+      (builtins.readFile ./dotfiles/niri/config.kdl);
     force = true;
   };
 

@@ -371,6 +371,7 @@ window-rule {
 binds {
     // OWN BINDS STARTS: (own)
     Mod+Space { spawn "walker"; }
+    Mod+S { spawn "@wifi-manager@" "--toggle"; }
 
     Mod+Ctrl+Q { spawn "swaylock"; }
 
