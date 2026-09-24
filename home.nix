@@ -1,4 +1,4 @@
-{ config, pkgs, unstablePkgs, ... }:
+{ config, pkgs, unstablePkgs, wifiManager, ... }:
 
 let
   kindleMail = pkgs.writeShellApplication {
@@ -58,6 +58,7 @@ in
     scala_2_12
 
     brightnessctl
+    wifiManager
 
     wtype
     swaybg
@@ -355,6 +356,20 @@ in
 
   };
 
+
+  systemd.user.services.wifi-manager = {
+    Unit = {
+      Description = "Wi-Fi and Bluetooth control panel";
+      PartOf = [ "graphical-session.target" ];
+      After = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = "${wifiManager}/bin/wifi-manager";
+      Restart = "on-failure";
+      RestartSec = 3;
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
 
   # configure niri through its own config file
   xdg.configFile."niri/config.kdl" = {

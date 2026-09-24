@@ -12,13 +12,15 @@
 
     elephant.url = "github:abenz1267/elephant";
 
+    wifi-manager.url = "github:Vijay-papanaboina/wifi-manager";
+
     walker = {
       url = "github:abenz1267/walker";
       inputs.elephant.follows = "elephant";
     };
   };
 
-  outputs = { nixpkgs, nixpkgs-unstable, home-manager, walker, ... }: 
+  outputs = { nixpkgs, nixpkgs-unstable, home-manager, walker, wifi-manager, ... }:
   let
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
@@ -40,6 +42,9 @@
       inherit pkgs;
       extraSpecialArgs = {
         inherit unstablePkgs;
+        wifiManager = wifi-manager.packages.${system}.default.overrideAttrs (old: {
+          patches = (old.patches or []) ++ [ ./patches/wifi-manager-audio-callback.patch ];
+        });
       };
       
       modules = [

@@ -1,0 +1,14 @@
+diff --git a/src/controls/audio.rs b/src/controls/audio.rs
+--- a/src/controls/audio.rs
++++ b/src/controls/audio.rs
+@@ -112,7 +112,9 @@
+             let manager_weak = Rc::downgrade(&manager);
+             manager.context.borrow_mut().set_state_callback(Some(Box::new(move || {
+                 if let Some(manager) = manager_weak.upgrade() {
+-                    manager.handle_context_state();
++                    // connect() may invoke this callback while context is mutably borrowed.
++                    // Defer the state read until that borrow has been released.
++                    glib::idle_add_local_once(move || manager.handle_context_state());
+                 }
+             })));
+         }
