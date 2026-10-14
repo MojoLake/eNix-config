@@ -3,6 +3,7 @@
 
 !/.gitignore
 !/AGENTS.md
+!/CLAUDE.md
 !/flake.nix
 !/flake.lock
 !/configuration.nix

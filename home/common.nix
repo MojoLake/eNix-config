@@ -121,9 +121,13 @@ in
     yarn
   ];
 
+  # Codex reads ~/.agents/skills and Claude Code reads ~/.claude/skills;
+  # both get the same skills from the repo.
   home.file = {
     ".agents/skills/anki-cards".source = ../skills/anki-cards;
     ".agents/skills/paper-to-kindle".source = ../skills/paper-to-kindle;
+    ".claude/skills/anki-cards".source = ../skills/anki-cards;
+    ".claude/skills/paper-to-kindle".source = ../skills/paper-to-kindle;
   };
 
   home.sessionPath = [
