@@ -41,10 +41,10 @@ Run these commands from the repository root. Use `.#mojolake` on the NixOS lapto
   home-manager -n switch --flake .#mojolake
   ```
 
-- First activation on the MacBook, before Home Manager is installed and flakes are enabled:
+- First activation on the MacBook, before Home Manager is installed and flakes are enabled. `NIX_CONFIG` is needed because home-manager runs its own `nix` commands, which don't inherit command-line flags:
 
   ```sh
-  nix --extra-experimental-features 'nix-command flakes' run home-manager/release-26.05 -- switch --flake .#eliassimojoki -b backup
+  NIX_CONFIG="experimental-features = nix-command flakes" nix run home-manager/release-26.05 -- switch --flake .#eliassimojoki -b backup
   ```
 
 ## NixOS System Commands
