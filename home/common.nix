@@ -24,6 +24,41 @@ let
     ankiPkgs.ankiAddons.anki-connect
   ];
 
+  # nixpkgs' Anki has no .app on macOS; add a small bundle so it shows up in
+  # Spotlight via ~/Applications/Home Manager Apps.
+  ankiDesktop =
+    if pkgs.stdenv.isDarwin then ankiApp else ankiWithConnect;
+
+  ankiApp = pkgs.runCommand "anki-app" { nativeBuildInputs = [ pkgs.libicns ]; } ''
+    mkdir -p $out
+    ln -s ${ankiWithConnect}/bin $out/bin
+    app=$out/Applications/Anki.app/Contents
+    mkdir -p $app/MacOS $app/Resources
+    png2icns $app/Resources/anki.icns \
+      ${ankiWithConnect}/share/icons/hicolor/128x128/apps/anki.png
+    cat > $app/MacOS/Anki <<EOF
+    #!/bin/sh
+    exec ${ankiWithConnect}/bin/anki "\$@"
+    EOF
+    chmod +x $app/MacOS/Anki
+    cat > $app/Info.plist <<EOF
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+      <key>CFBundleName</key><string>Anki</string>
+      <key>CFBundleDisplayName</key><string>Anki</string>
+      <key>CFBundleIdentifier</key><string>net.ankiweb.dtop.nix</string>
+      <key>CFBundleExecutable</key><string>Anki</string>
+      <key>CFBundleIconFile</key><string>anki</string>
+      <key>CFBundlePackageType</key><string>APPL</string>
+      <key>CFBundleShortVersionString</key><string>${ankiWithConnect.version or "0"}</string>
+      <key>NSHighResolutionCapable</key><true/>
+    </dict>
+    </plist>
+    EOF
+  '';
+
   ankiCard = ankiPkgs.writeShellApplication {
     name = "anki-card";
     text = ''
@@ -77,7 +112,7 @@ in
 
     tree
 
-    ankiWithConnect
+    ankiDesktop
     ankiCard
 
     unstablePkgs.spotify-player
