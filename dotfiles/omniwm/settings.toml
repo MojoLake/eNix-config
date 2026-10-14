@@ -1020,7 +1020,7 @@ layoutType = "niri"
 name = "1"
 
 [workspaces.monitorAssignment]
-type = "main"
+type = "secondary"
 
 [[workspaces]]
 id = "454CECD4-5E9D-4ED1-95D7-979D48817F5F"
@@ -1061,7 +1061,7 @@ layoutType = "niri"
 name = "6"
 
 [workspaces.monitorAssignment]
-type = "secondary"
+type = "main"
 
 [[workspaces]]
 displayName = "🚀"
@@ -1070,7 +1070,7 @@ layoutType = "niri"
 name = "7"
 
 [workspaces.monitorAssignment]
-type = "secondary"
+type = "main"
 
 [[workspaces]]
 id = "0E18F6B0-345A-4078-8B21-33641F07A861"
