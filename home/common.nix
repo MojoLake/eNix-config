@@ -2,6 +2,36 @@
 # Platform-specific parts live in ./linux.nix and ./darwin.nix.
 { config, pkgs, unstablePkgs, ... }:
 
+let
+  # Stable Anki needs a QtWebEngine that isn't cached and fails to build on macOS,
+  # so the Mac uses unstable. There, anki-mac-helper declares version 26.08 but its
+  # metadata says 0.1.1, which fails nixpkgs' metadata check; skip that check.
+  ankiPkgs =
+    if pkgs.stdenv.isDarwin then
+      unstablePkgs.extend (final: prev: {
+        pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+          (pyFinal: pyPrev: {
+            anki-mac-helper = pyPrev.anki-mac-helper.overridePythonAttrs {
+              dontCheckPythonMetadata = true;
+            };
+          })
+        ];
+      })
+    else
+      pkgs;
+
+  ankiWithConnect = ankiPkgs.anki.withAddons [
+    ankiPkgs.ankiAddons.anki-connect
+  ];
+
+  ankiCard = ankiPkgs.writeShellApplication {
+    name = "anki-card";
+    text = ''
+      export PYTHONPATH="${ankiPkgs.anki.lib}/${ankiPkgs.python3.sitePackages}"
+      exec ${ankiPkgs.python3}/bin/python3 ${../scripts/anki-card.py} "$@"
+    '';
+  };
+in
 {
   # home.username and home.homeDirectory are set per machine in flake.nix.
 
@@ -46,6 +76,9 @@
     jq
 
     tree
+
+    ankiWithConnect
+    ankiCard
 
     unstablePkgs.spotify-player
 

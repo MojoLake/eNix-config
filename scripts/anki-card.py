@@ -11,6 +11,7 @@ import os
 import pickle
 import re
 import sqlite3
+import subprocess
 import sys
 import time
 from contextlib import contextmanager
@@ -181,6 +182,8 @@ class AnkiConnect:
 def default_anki_base() -> Path:
     if value := os.environ.get("ANKI_BASE"):
         return Path(value).expanduser()
+    if sys.platform == "darwin":
+        return Path.home() / "Library/Application Support/Anki2"
     data_home = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
     return data_home / "Anki2"
 
@@ -224,6 +227,18 @@ def processes_using_collection(path: Path) -> list[int]:
         str(path.with_name("collection.media.db2").resolve()),
     }
     users: list[int] = []
+    if sys.platform == "darwin":
+        # macOS has no /proc; ask lsof which processes hold the files open.
+        existing = [target for target in targets if Path(target).exists()]
+        if not existing:
+            return []
+        result = subprocess.run(
+            ["/usr/sbin/lsof", "-t", "--", *existing],
+            capture_output=True,
+            text=True,
+        )
+        users = [int(pid) for pid in result.stdout.split() if int(pid) != os.getpid()]
+        return sorted(set(users))
     for proc in Path("/proc").iterdir():
         if not proc.name.isdigit() or int(proc.name) == os.getpid():
             continue
