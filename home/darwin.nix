@@ -18,6 +18,14 @@
   # nixpkgs builds Ghostty from source only on Linux; use the upstream app on macOS.
   programs.ghostty.package = pkgs.ghostty-bin;
 
+  # Repos under ~/work/ commit with the Verda email.
+  programs.git.includes = [
+    {
+      condition = "gitdir:~/work/";
+      contents.user.email = "elias.simojoki@verda.com";
+    }
+  ];
+
   programs.zsh.shellAliases = {
     hms = "home-manager switch --flake ~/eNix-config#eliassimojoki";
   };
