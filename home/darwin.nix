@@ -23,6 +23,14 @@
     config.lib.file.mkOutOfStoreSymlink
       "${config.home.homeDirectory}/eNix-config/dotfiles/omniwm/settings.toml";
 
+  # Swallow Cmd+H (hide app) everywhere; it's too easy to hit instead of OmniWM's Option+H.
+  services.skhd = {
+    enable = true;
+    config = ''
+      cmd - h : true
+    '';
+  };
+
   # nixpkgs builds Ghostty from source only on Linux; use the upstream app on macOS.
   programs.ghostty.package = pkgs.ghostty-bin;
 
