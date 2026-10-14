@@ -2,7 +2,7 @@
 #
 # Nix itself is the upstream install; /etc/nix/nix.conf is left alone because
 # Aikido Endpoint Protection adds its ssl-cert-file there.
-{ pkgs, unstablePkgs, ... }:
+{ config, pkgs, unstablePkgs, ... }:
 
 {
   # Enable flakes for this user without touching the system nix.conf.
@@ -17,6 +17,11 @@
     # Tiling window manager; not in stable nixpkgs yet.
     unstablePkgs.omniwm
   ];
+
+  # Linked to the repo copy so changes made in OmniWM's settings window land in git.
+  xdg.configFile."omniwm/settings.toml".source =
+    config.lib.file.mkOutOfStoreSymlink
+      "${config.home.homeDirectory}/eNix-config/dotfiles/omniwm/settings.toml";
 
   # nixpkgs builds Ghostty from source only on Linux; use the upstream app on macOS.
   programs.ghostty.package = pkgs.ghostty-bin;
