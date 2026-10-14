@@ -13,6 +13,9 @@
   home.packages = [
     # Stable ols pulls in an LLVM 18 that isn't cached and fails to build on macOS.
     unstablePkgs.ols
+
+    # Tiling window manager; not in stable nixpkgs yet.
+    unstablePkgs.omniwm
   ];
 
   # nixpkgs builds Ghostty from source only on Linux; use the upstream app on macOS.
