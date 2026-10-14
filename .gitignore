@@ -6,10 +6,13 @@
 !/flake.nix
 !/flake.lock
 !/configuration.nix
-!/hardware-configurationn.nix
-!/home.nix
+!/hardware-configuration.nix
+!/home/
 !/images/
 !/skills/
+
+# patches
+!/patches/
 
 # dotfiles
 !/dotfiles/

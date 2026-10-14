@@ -10,9 +10,18 @@
 
 Use concise Conventional Commit-style messages, such as `feat: add recent screen recording actions` or `fix: restore recording indicator`. Describe the user-visible change rather than implementation details.
 
+## Layout
+
+- `home/common.nix`: Home Manager config shared by both machines.
+- `home/linux.nix`: NixOS laptop only (niri desktop, Wayland tools, systemd services).
+- `home/darwin.nix`: work MacBook only.
+- `configuration.nix`, `hardware-configuration.nix`: NixOS system config.
+
+Put new config in `home/common.nix` unless it only works on one platform.
+
 ## Home Manager Commands
 
-Run these commands from the repository root.
+Run these commands from the repository root. Use `.#mojolake` on the NixOS laptop and `.#eliassimojoki` on the MacBook.
 
 - Build and activate the Home Manager configuration:
 
@@ -30,6 +39,12 @@ Run these commands from the repository root.
 
   ```sh
   home-manager -n switch --flake .#mojolake
+  ```
+
+- First activation on the MacBook, before Home Manager is installed and flakes are enabled:
+
+  ```sh
+  nix --extra-experimental-features 'nix-command flakes' run home-manager/release-26.05 -- switch --flake .#eliassimojoki -b backup
   ```
 
 ## NixOS System Commands

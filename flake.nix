@@ -22,34 +22,56 @@
 
   outputs = { nixpkgs, nixpkgs-unstable, home-manager, walker, wifi-manager, ... }:
   let
-    system = "x86_64-linux";
-    pkgs = nixpkgs.legacyPackages.${system};
-    unstablePkgs = import nixpkgs-unstable {
+    mkUnstablePkgs = system: import nixpkgs-unstable {
       inherit system;
       config.allowUnfree = true;
     };
+
+    # Standalone Home Manager config: ./home/common.nix plus per-machine modules.
+    mkHome = { system, username, homeDirectory, modules, extraSpecialArgs ? { } }:
+      home-manager.lib.homeManagerConfiguration {
+        pkgs = nixpkgs.legacyPackages.${system};
+        extraSpecialArgs = {
+          unstablePkgs = mkUnstablePkgs system;
+        } // extraSpecialArgs;
+
+        modules = [
+          ./home/common.nix
+          { home = { inherit username homeDirectory; }; }
+        ] ++ modules;
+      };
   in
   {
     nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
-      # system = "x86_64-linux";
-      inherit system;
+      system = "x86_64-linux";
       modules = [
         ./configuration.nix
       ];
     };
 
-    homeConfigurations."mojolake" = home-manager.lib.homeManagerConfiguration {
-      inherit pkgs;
+    # NixOS laptop
+    homeConfigurations."mojolake" = mkHome {
+      system = "x86_64-linux";
+      username = "mojolake";
+      homeDirectory = "/home/mojolake";
       extraSpecialArgs = {
-        inherit unstablePkgs;
-        wifiManager = wifi-manager.packages.${system}.default.overrideAttrs (old: {
+        wifiManager = wifi-manager.packages.x86_64-linux.default.overrideAttrs (old: {
           patches = (old.patches or []) ++ [ ./patches/wifi-manager-audio-callback.patch ];
         });
       };
-      
       modules = [
-	walker.homeManagerModules.default
-	./home.nix
+        walker.homeManagerModules.default
+        ./home/linux.nix
+      ];
+    };
+
+    # Work MacBook (Verda)
+    homeConfigurations."eliassimojoki" = mkHome {
+      system = "aarch64-darwin";
+      username = "eliassimojoki";
+      homeDirectory = "/Users/eliassimojoki";
+      modules = [
+        ./home/darwin.nix
       ];
     };
   };

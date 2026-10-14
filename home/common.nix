@@ -1,0 +1,171 @@
+# Home Manager config shared by the NixOS laptop and the work MacBook.
+# Platform-specific parts live in ./linux.nix and ./darwin.nix.
+{ config, pkgs, unstablePkgs, ... }:
+
+{
+  # home.username and home.homeDirectory are set per machine in flake.nix.
+
+  # This value determines the Home Manager release that your configuration is
+  # compatible with. This helps avoid breakage when a new Home Manager release
+  # introduces backwards incompatible changes.
+  #
+  # You should not change this value, even if you update Home Manager. If you do
+  # want to update the value, then make sure to first check the Home Manager
+  # release notes.
+  home.stateVersion = "26.05"; # Please read the comment before changing.
+
+  # The home.packages option allows you to install Nix packages into your
+  # environment.
+  home.packages = with pkgs; [
+    # # Adds the 'hello' command to your environment. It prints a friendly
+    # # "Hello, world!" when run.
+    hello
+
+    zip
+    unzip
+
+    typst
+
+    gnumake
+    meson
+    clang-tools
+
+    zig
+    zls
+
+    rustup
+
+    python3
+    basedpyright
+    uv
+
+    scala_2_12
+
+    nerd-fonts.symbols-only
+
+    jq
+
+    tree
+
+    unstablePkgs.spotify-player
+
+    nodejs_24
+    yarn
+  ];
+
+  home.file = {
+    ".agents/skills/anki-cards".source = ../skills/anki-cards;
+    ".agents/skills/paper-to-kindle".source = ../skills/paper-to-kindle;
+  };
+
+  home.sessionPath = [
+    "$HOME/.local/bin"
+  ];
+
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    VISUAL = "nvim";
+  };
+
+  # Let Home Manager install and manage itself.
+  programs.home-manager.enable = true;
+
+  programs.codex = {
+    enable = true;
+    # Trust the launch directory without writing to the Home Manager-owned config.
+    package = pkgs.writeShellScriptBin "codex" ''
+      trusted_path=$(${pkgs.jq}/bin/jq -rn --arg path "$PWD" '$path | tojson')
+      exec ${unstablePkgs.codex}/bin/codex \
+        -c "projects={$trusted_path={trust_level=\"trusted\"}}" \
+        "$@"
+    '';
+
+    settings = {
+      projects.${config.home.homeDirectory}.trust_level = "trusted";
+    };
+  };
+
+  # <3 hashimoto
+  programs.ghostty = {
+    enable = true;
+
+    settings = {
+      working-directory = "home";
+      window-inherit-working-directory = true;
+    };
+  };
+
+  # to flex on other people
+  programs.fastfetch.enable = true;
+
+  programs.git = {
+    enable = true;
+
+    settings = {
+      user = {
+        name = "Elias Simojoki";
+        email = "simo.simojoki@gmail.com";
+      };
+
+      init.defaultBranch = "main";
+
+      alias = {
+        st = "status";
+        br = "branch";
+        c = "commit";
+      };
+    };
+  };
+
+  programs.neovim = {
+    enable = true;
+    defaultEditor = true;
+    sideloadInitLua = true;
+    viAlias = true;
+    vimAlias = true;
+  };
+
+  # configure neovim through the lua config
+  xdg.configFile."nvim".source =
+    config.lib.file.mkOutOfStoreSymlink
+      "${config.home.homeDirectory}/eNix-config/dotfiles/nvim";
+
+  programs.ripgrep.enable = true;
+  programs.fd.enable = true;
+
+  programs.fzf = {
+    enable = true;
+    enableZshIntegration = true;
+  };
+
+  programs.zsh = {
+    enable = true;
+    enableCompletion = true;
+    autosuggestion.enable = true;
+    syntaxHighlighting.enable = true;
+    defaultKeymap = "viins";
+
+    plugins = [
+      {
+        name = "fzf-tab";
+        src = pkgs.zsh-fzf-tab;
+        file = "share/fzf-tab/fzf-tab.plugin.zsh";
+      }
+    ];
+
+    shellAliases = {
+      com = "g++ -Wall -fsanitize=address";
+      vi = "nvim";
+      codex-d = "codex --dangerously-bypass-approvals-and-sandbox";
+      nd = "nix develop --command zsh -i";
+    };
+
+    initContent = ''
+      bindkey -M viins '^L' autosuggest-accept
+    '';
+  };
+
+  # allow unfree packages
+  nixpkgs.config.allowUnfree = true;
+  programs.obsidian.enable = true;
+}
