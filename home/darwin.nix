@@ -42,6 +42,33 @@
     }
   ];
 
+  # Pi: Verda's internal inference gateway (VPN required). The key lives in a
+  # user-only file outside the store; pi runs the `!` command to read it.
+  home.file.".pi/agent/models.json".text = builtins.toJSON {
+    providers.verda = {
+      name = "Verda";
+      baseUrl = "https://inference.verda.com/v1";
+      api = "openai-completions";
+      apiKey = "!cat ${config.home.homeDirectory}/.config/verda/inference-api-key";
+      authHeader = true;
+      compat.supportsDeveloperRole = false;
+      models = [
+        {
+          id = "kimi-k3";
+          name = "Kimi K3 (Verda)";
+          # Returns reasoning_content alongside the answer.
+          reasoning = true;
+          input = [ "text" ];
+          # The gateway rejects max_tokens above 1048576.
+          contextWindow = 1048576;
+          # Leave room for reasoning tokens, which share the output budget.
+          maxTokens = 32768;
+          cost = { input = 0; output = 0; cacheRead = 0; cacheWrite = 0; };
+        }
+      ];
+    };
+  };
+
   programs.zsh.shellAliases = {
     hms = "home-manager switch --flake ~/eNix-config#eliassimojoki";
   };

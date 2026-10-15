@@ -117,6 +117,9 @@ in
 
     unstablePkgs.spotify-player
 
+    # Pi coding agent (pi.dev); stable lags well behind upstream.
+    unstablePkgs.pi-coding-agent
+
     nodejs_24
     yarn
   ];
