@@ -152,6 +152,21 @@ gridRow = 1
 monitorDisplayUUID = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
 monitorName = "Built-in Retina Display"
 
+[[routing.arrangements]]
+id = "87A24873-6632-487F-A8DB-E7C2C1AF3D5C"
+
+[[routing.arrangements.monitors]]
+gridColumn = 0
+gridRow = 0
+monitorDisplayUUID = "C2E0BCA7-34B4-4F5A-9436-655907AA7D71"
+monitorName = "T34WD-40"
+
+[[routing.arrangements.monitors]]
+gridColumn = 0
+gridRow = 1
+monitorDisplayUUID = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
+monitorName = "Built-in Retina Display"
+
 [scratchpads]
 
 [scratchpads.labels]
