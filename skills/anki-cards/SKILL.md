@@ -15,6 +15,16 @@ necessarily rejected. Preserve supplied wording/types unless incorrect; put
 qualifications in Back Extra. Review each generated card for ambiguity and value.
 Show cloze syntax or front/back pairs. Language labels indicate answer language.
 
+- Cloze only the key term (usually 1–2 words); leave articles, quantifiers and
+  connecting words visible. Weak: `is {{c1::one control plane}}`. Better:
+  `is one {{c1::control plane}}`.
+- Never cloze a whole clause or a negated phrase; keep the logic visible and
+  cloze the concept, e.g. `adds no extra {{c1::fault}} {{c2::tolerance}}`.
+- Vocabulary/idioms Elias wants to use: one Basic card, meaning → expression,
+  with a first-letter hint when synonyms could also fit. No reverse by default.
+- When suggesting cards, run `schema` and propose a specific existing deck for
+  each card instead of asking which deck to use.
+
 ## Formulation examples
 
 These examples come from Elias's existing collection and reflect card shapes he
