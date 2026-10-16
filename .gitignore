@@ -20,3 +20,6 @@
 
 #scripts
 !/scripts/
+
+# macOS junk
+.DS_Store
