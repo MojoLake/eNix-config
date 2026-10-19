@@ -112,6 +112,8 @@ in
 
     tree
 
+    kubectl
+
     ankiDesktop
     ankiCard
 
