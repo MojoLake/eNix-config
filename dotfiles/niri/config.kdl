@@ -300,6 +300,18 @@ hotkey-overlay {
     // skip-at-startup
 }
 
+// Physical DESKTOP emits Mod through keyd. Restrict niri's switcher to that
+// modifier so physical APP (logical Alt) remains available for applications.
+// The switcher confirms on modifier release and Escape cancels it.
+recent-windows {
+    binds {
+        Mod+Tab         { next-window; }
+        Mod+Shift+Tab   { previous-window; }
+        Mod+grave       { next-window     filter="app-id"; }
+        Mod+Shift+grave { previous-window filter="app-id"; }
+    }
+}
+
 // Uncomment this line to ask the clients to omit their client-side decorations if possible.
 // If the client will specifically ask for CSD, the request will be honored.
 // Additionally, clients will be informed that they are tiled, removing some client-side rounded corners.
@@ -387,12 +399,18 @@ binds {
 
     Mod+Ctrl+S { set-column-width "50%"; }
 
-    Mod+T { spawn "wtype" "-M" "ctrl" "t" "-m" "ctrl"; }
-    Mod+W { spawn "wtype" "-M" "ctrl" "w" "-m" "ctrl"; }
-
-    Mod+A { spawn "/home/mojolake/eNix-config/scripts/macos-key" "a"; }
-    Mod+C { spawn "/home/mojolake/eNix-config/scripts/macos-key" "c"; }
-    Mod+V { spawn "/home/mojolake/eNix-config/scripts/macos-key" "v"; }
+    // Physical APP emits Alt through keyd. Translate only the agreed chords;
+    // real Ctrl remains untouched for terminal control sequences.
+    Alt+A { spawn "/home/mojolake/eNix-config/scripts/macos-key" "a"; }
+    Alt+C { spawn "/home/mojolake/eNix-config/scripts/macos-key" "c"; }
+    Alt+V { spawn "/home/mojolake/eNix-config/scripts/macos-key" "v"; }
+    Alt+X { spawn "/home/mojolake/eNix-config/scripts/macos-key" "x"; }
+    Alt+Z { spawn "/home/mojolake/eNix-config/scripts/macos-key" "z"; }
+    Alt+Shift+Z { spawn "/home/mojolake/eNix-config/scripts/macos-key" "redo"; }
+    Alt+F { spawn "/home/mojolake/eNix-config/scripts/macos-key" "f"; }
+    Alt+S { spawn "/home/mojolake/eNix-config/scripts/macos-key" "s"; }
+    Alt+T { spawn "/home/mojolake/eNix-config/scripts/macos-key" "t"; }
+    Alt+W { spawn "/home/mojolake/eNix-config/scripts/macos-key" "w"; }
 
     // Macos like screenshots and screen recording combinations
     Mod+Shift+Ctrl+4 { spawn-sh "grim -g \"$(slurp)\" - | wl-copy" ; }
@@ -404,8 +422,6 @@ binds {
       F23 { spawn-sh "playerctl play-pause"; }
       XF86Favorites { spawn-sh "playerctl next"; }
 
-    // Just override normal to nothing
-    // Mod+Tab { spwan "true"; } (nevermind, let it be)
     // OWN BINDS ENDS
 
     // Keys consist of modifiers separated by + signs, followed by an XKB key name
@@ -581,24 +597,24 @@ binds {
     //
     // For example, with 2 workspaces + 1 empty, indices 3, 4, 5 and so on
     // will all refer to the 3rd workspace.
-    // Mod+1 { focus-workspace 1; }
-    Mod+2 { focus-workspace 1; }
-    Mod+3 { focus-workspace 2; }
-    Mod+4 { focus-workspace 3; }
-    Mod+5 { focus-workspace 4; }
-    Mod+6 { focus-workspace 5; }
-    Mod+7 { focus-workspace 6; }
-    Mod+8 { focus-workspace 7; }
-    Mod+9 { focus-workspace 8; }
-    // Mod+Ctrl+1 { move-column-to-workspace 1; }
-    Mod+Ctrl+2 { move-column-to-workspace 1; }
-    Mod+Ctrl+3 { move-column-to-workspace 2; }
-    Mod+Ctrl+4 { move-column-to-workspace 3; }
-    Mod+Ctrl+5 { move-column-to-workspace 4; }
-    Mod+Ctrl+6 { move-column-to-workspace 5; }
-    Mod+Ctrl+7 { move-column-to-workspace 6; }
-    Mod+Ctrl+8 { move-column-to-workspace 7; }
-    Mod+Ctrl+9 { move-column-to-workspace 8; }
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+    Mod+6 { focus-workspace 6; }
+    Mod+7 { focus-workspace 7; }
+    Mod+8 { focus-workspace 8; }
+    Mod+9 { focus-workspace 9; }
+    Mod+Ctrl+1 { move-column-to-workspace 1; }
+    Mod+Ctrl+2 { move-column-to-workspace 2; }
+    Mod+Ctrl+3 { move-column-to-workspace 3; }
+    Mod+Ctrl+4 { move-column-to-workspace 4; }
+    Mod+Ctrl+5 { move-column-to-workspace 5; }
+    Mod+Ctrl+6 { move-column-to-workspace 6; }
+    Mod+Ctrl+7 { move-column-to-workspace 7; }
+    Mod+Ctrl+8 { move-column-to-workspace 8; }
+    Mod+Ctrl+9 { move-column-to-workspace 9; }
 
     // Alternatively, there are commands to move just a single window:
     // Mod+Ctrl+1 { move-window-to-workspace 1; }
@@ -674,10 +690,6 @@ binds {
     // since it will switch twice upon pressing the hotkey (once by xkb, once by niri).
     // Mod+Space       { switch-layout "next"; }
     // Mod+Shift+Space { switch-layout "prev"; }
-
-    Print { screenshot; }
-    Ctrl+Print { screenshot-screen; }
-    Alt+Print { screenshot-window; }
 
     // Applications such as remote-desktop clients and software KVM switches may
     // request that niri stops processing the keyboard shortcuts defined here

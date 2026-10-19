@@ -109,12 +109,19 @@
       ids = [ "*" ];
 
       settings.main = {
-	capslock = "layer(control)";
-	rightcontrol="rightcontrol";
+        capslock = "layer(control)";
+        rightcontrol = "rightcontrol";
 
+        # Keep physical modifier positions aligned with the MacBook: Left Alt
+        # is DESKTOP (Super), while Left Super and Print Screen are APP (Alt).
         leftalt = "layer(meta)";
         leftmeta = "layer(alt)";
+        # The ThinkPad PrtSc key reports Linux KEY_SYSRQ. Keep KEY_PRINT mapped
+        # too for external keyboards that expose the dedicated print code.
+        sysrq = "layer(alt)";
+        print = "layer(alt)";
 
+        # Preserve the existing language-layout access on the right side.
         rightalt = "layer(meta)";
         leftcontrol = "layer(altgr)";
       };
