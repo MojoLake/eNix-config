@@ -3,7 +3,25 @@
 # Nix itself is the upstream install; /etc/nix/nix.conf is left alone because
 # Aikido Endpoint Protection adds its ssl-cert-file there.
 { config, pkgs, unstablePkgs, ... }:
-
+let
+  # Keep the upstream signed app intact for macOS Accessibility permissions.
+  hammerspoon = pkgs.stdenvNoCC.mkDerivation {
+    pname = "hammerspoon";
+    version = "1.1.1";
+    src = pkgs.fetchurl {
+      url = "https://github.com/Hammerspoon/hammerspoon/releases/download/1.1.1/Hammerspoon-1.1.1.zip";
+      sha256 = "11bb1c90faf5427f37c7bd4fe7eab9774ae43e1d5cb020c5b3088dac32849efa";
+    };
+    nativeBuildInputs = [ pkgs.unzip ];
+    sourceRoot = ".";
+    dontBuild = true;
+    dontFixup = true;
+    installPhase = ''
+      mkdir -p "$out/Applications"
+      cp -R Hammerspoon.app "$out/Applications/"
+    '';
+  };
+in
 {
   # Enable flakes for this user without touching the system nix.conf.
   xdg.configFile."nix/nix.conf".text = ''
@@ -16,20 +34,25 @@
 
     # Tiling window manager; not in stable nixpkgs yet.
     unstablePkgs.omniwm
+    hammerspoon
   ];
+
+  # Desktop modifier exceptions; the Command/Option swap remains in macOS settings.
+  home.file.".hammerspoon/init.lua".source = ../dotfiles/hammerspoon/init.lua;
+  launchd.agents.hammerspoon = {
+    enable = true;
+    config = {
+      # Launch the installed copy: this is the path approved in macOS privacy settings.
+      ProgramArguments = [ "/usr/bin/open" "-g" "${config.home.homeDirectory}/Applications/Home Manager Apps/Hammerspoon.app" ];
+      RunAtLoad = true;
+      ProcessType = "Interactive";
+    };
+  };
 
   # Linked to the repo copy so changes made in OmniWM's settings window land in git.
   xdg.configFile."omniwm/settings.toml".source =
     config.lib.file.mkOutOfStoreSymlink
       "${config.home.homeDirectory}/eNix-config/dotfiles/omniwm/settings.toml";
-
-  # Swallow Cmd+H (hide app) everywhere; it's too easy to hit instead of OmniWM's Option+H.
-  services.skhd = {
-    enable = true;
-    config = ''
-      cmd - h : true
-    '';
-  };
 
   # nixpkgs builds Ghostty from source only on Linux; use the upstream app on macOS.
   programs.ghostty.package = pkgs.ghostty-bin;
