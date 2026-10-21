@@ -626,7 +626,7 @@ binding = "Control+Option+9"
 id = "moveColumnToWorkspace.8"
 
 [[hotkeys]]
-binding = "Control+Option+Shift+H"
+binding = "Option+["
 id = "move.left"
 
 [[hotkeys]]
@@ -638,7 +638,7 @@ binding = "Option+Shift+Up Arrow"
 id = "move.up"
 
 [[hotkeys]]
-binding = "Control+Option+Shift+L"
+binding = "Option+]"
 id = "move.right"
 
 [[hotkeys]]
