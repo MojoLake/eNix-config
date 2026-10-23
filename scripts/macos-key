@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-key="${1:?usage: macos-key a|c|v|x|z|redo|f|s|t|w}"
+key="${1:?usage: macos-key a|c|v|x|z|redo|f|r|s|t|w}"
 
 app_id="$(niri msg --json focused-window | jq -r '.app_id // ""')"
 
@@ -20,7 +20,7 @@ case "$app_id:$key" in
     *:redo)
         wtype -M ctrl -M shift z -m shift -m ctrl
         ;;
-    *:a|*:c|*:v|*:x|*:z|*:f|*:s|*:t|*:w)
+    *:a|*:c|*:v|*:x|*:z|*:f|*:r|*:s|*:t|*:w)
         wtype -M ctrl "$key" -m ctrl
         ;;
     *)

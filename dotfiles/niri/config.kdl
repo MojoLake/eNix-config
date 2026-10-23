@@ -408,6 +408,7 @@ binds {
     Alt+Z { spawn "/home/mojolake/eNix-config/scripts/macos-key" "z"; }
     Alt+Shift+Z { spawn "/home/mojolake/eNix-config/scripts/macos-key" "redo"; }
     Alt+F { spawn "/home/mojolake/eNix-config/scripts/macos-key" "f"; }
+    Alt+R { spawn "/home/mojolake/eNix-config/scripts/macos-key" "r"; }
     Alt+S { spawn "/home/mojolake/eNix-config/scripts/macos-key" "s"; }
     Alt+T { spawn "/home/mojolake/eNix-config/scripts/macos-key" "t"; }
     Alt+W { spawn "/home/mojolake/eNix-config/scripts/macos-key" "w"; }
