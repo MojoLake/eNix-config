@@ -33,6 +33,7 @@ Preserve existing desktop movement chords instead of changing the whole layout.
 | DESKTOP + Shift + direction | Existing monitor-focus action |
 | DESKTOP + number | Select workspace |
 | DESKTOP + Space | Spotlight on macOS; application launcher on NixOS |
+| DESKTOP + D | New Ghostty window beside the current window |
 | DESKTOP + Tab | Native app switcher on macOS; hold DESKTOP and repeat Tab to cycle |
 | DESKTOP + Shift + Tab | Cycle the switcher backward |
 | DESKTOP + backtick | Cycle windows of the current app |
@@ -72,6 +73,14 @@ copy approved in macOS privacy settings, rather than the Nix store copy.
 
 Hammerspoon replaces skhd and also blocks accidental Command+H application
 hiding, the only binding previously provided by skhd. Do not run both daemons.
+
+Logical Option+D (physical Command+D) opens a new Ghostty window. Hammerspoon
+selects Ghostty's File > New Window menu item without first activating an
+existing terminal, so OmniWM inserts the new window beside the current column
+on the current workspace. If Ghostty is not running, it launches the app instead.
+This uses Hammerspoon's existing Accessibility permission; no Ghostty global
+binding, AppleScript Automation permission, or OmniWM IPC is required.
+The Hammerspoon config is linked to the repository; reload Hammerspoon after edits.
 
 Hammerspoon needs macOS Accessibility permission. Secure Input can prevent
 event-tap shortcuts from working. The outer APP key's native Command+Tab and

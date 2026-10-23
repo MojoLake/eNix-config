@@ -113,6 +113,7 @@ in
     tree
 
     kubectl
+    k9s
 
     ankiDesktop
     ankiCard

@@ -12,6 +12,21 @@ local translatedKeys = {}
 -- Replaces the previous skhd config: prevent accidental application hiding.
 hideAppGuard = hs.hotkey.bind({ "cmd" }, "h", function() end)
 
+-- Physical Command+D: open a terminal beside the current OmniWM column.
+-- Press the background app's menu item without activating its existing window:
+-- activating first could switch to Ghostty's workspace before creating the window.
+newGhosttyWindow = hs.hotkey.bind({ "alt" }, "d", function()
+    local bundleID = "com.mitchellh.ghostty"
+    local app = hs.application.applicationsForBundleID(bundleID)[1]
+    if app then
+        if not app:selectMenuItem({ "File", "New Window" }) then
+            hs.alert.show("Could not open a new Ghostty window")
+        end
+    elseif not hs.application.launchOrFocusByBundleID(bundleID) then
+        hs.alert.show("Could not launch Ghostty")
+    end
+end)
+
 local function commandFlags(flags)
     -- Preserve Caps Lock and other raw flags while replacing Option with Command.
     local raw = flags & ~0x00080000 -- NX_ALTERNATEMASK

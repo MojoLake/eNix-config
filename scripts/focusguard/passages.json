@@ -1,0 +1,724 @@
+[
+  {
+    "id": "kv-size",
+    "topic": "KV cache",
+    "title": "Count the bytes before counting requests",
+    "paragraphs": [
+      "A KV cache stores intermediate attention keys and values from tokens the model has already processed. During ordinary autoregressive decoding, the new token queries those earlier keys and combines their values. Keeping them avoids repeating their projections on every step. The cache still has to be read, so removing recomputation does not make a long context free.",
+      "For a conventional attention model, start with layers times tokens times KV heads times head dimension times bytes per element. Multiply by two because keys and values are separate. Use KV heads, not query heads. Assume 32 layers, 8 KV heads, a head dimension of 128, and two bytes per element. The result is 131072 bytes per token, or 128 KiB.",
+      "An 8192 token sequence therefore needs one GiB of KV data under those assumptions. Sixteen independent sequences need sixteen GiB before allocator overhead and extra reserved space. Shared prefixes may reduce the physical allocation. Padding, block rounding, quantization metadata, replication, and architecture specific state may increase or otherwise change the actual allocation. Always state what your estimate includes.",
+      "The useful question is how much memory remains after weights, temporary buffers, and runtime allocations. If the usable KV pool is 24 GiB, this example suggests room for roughly 24 such sequences, not a promise of 24 concurrent requests at every length. Output tokens grow the cache too. Predict the memory requirement first, then compare it with measured pool occupancy and admission behavior."
+    ],
+    "recalls": [
+      {
+        "question": "How much KV memory does a 4096 token sequence need in this example?",
+        "answer": "Half a GiB: 4096 times 128 KiB. This excludes overhead and assumes no shared prefix."
+      },
+      {
+        "question": "Why is the number of query heads the wrong multiplier for GQA?",
+        "answer": "Several query heads share a KV head. Cache storage follows the KV heads, not the query heads."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2305.13245"
+    ]
+  },
+  {
+    "id": "kv-pages",
+    "topic": "KV cache",
+    "title": "Why a KV cache uses blocks",
+    "paragraphs": [
+      "Suppose every request received a contiguous allocation large enough for its maximum context. A request allowed 32000 tokens might initially contain only 1000. Reserving the maximum would leave most of that space unused. Growing smaller contiguous allocations is also awkward: free memory can be split into holes, and moving an active cache costs bandwidth and complicates scheduling.",
+      "A block allocator divides a sequence into fixed size groups of tokens. Logical block zero can live in one physical location, and logical block one somewhere entirely different. A table records the mapping. The attention kernel follows that mapping when reading previous tokens. The model still sees the same logical sequence even though its cache is physically scattered across memory.",
+      "Consider a teaching example with blocks of sixteen tokens. A sequence of 33 tokens needs three blocks, which provide 48 token slots. Fifteen slots in the final block are unused. A sequence of 47 tokens also needs three blocks, but wastes only one slot. Smaller blocks can reduce this rounding waste, while increasing metadata and potentially complicating efficient memory access.",
+      "This gives you a concrete way to debug capacity claims. Compare live tokens with allocated block capacity, and separate internal rounding waste from reusable cached blocks and genuinely free blocks. A high allocation count does not necessarily mean every slot holds useful active data. When a request completes, its blocks may be freed or retained for prefix reuse. The policy deciding that retention is separate from the mechanism that maps logical positions to physical storage."
+    ],
+    "recalls": [
+      {
+        "question": "With sixteen token blocks, how many blocks does a 65 token sequence require?",
+        "answer": "Five blocks, providing 80 slots and leaving 15 unused slots in the final block."
+      },
+      {
+        "question": "Does paging reduce the mathematical amount of attention work?",
+        "answer": "No. It changes storage and allocation. The attention still operates on the logical context unless a separate algorithm changes it."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2309.06180"
+    ]
+  },
+  {
+    "id": "prefix-identity",
+    "topic": "KV cache",
+    "title": "A prefix cache needs an exact identity",
+    "paragraphs": [
+      "A repeated system prompt can save work only if the reused KV entries represent the same computation. Matching visible text is not enough. Tokenization, token positions, model weights, adapters, and relevant model configuration can affect the cached values. A cache key must distinguish whichever inputs can change those values in the serving implementation you are using.",
+      "Imagine two requests beginning with the same 2000 tokens and ending with different questions. Their common prefix may be reusable. After the first differing token, however, later tokens can attend to different histories. Identical words appearing again near the end do not generally restore cache equivalence. Prefix identity follows the entire preceding token sequence, not just the contents of an isolated block.",
+      "For a simple example, request A contains tokens numbered one through ten, while request B agrees through token six and differs at token seven. Reuse can extend through the matching region, subject to block boundaries and engine rules. It cannot safely jump over token seven and reuse later blocks just because their local token IDs match. The earlier difference has changed their context.",
+      "This explains why cache keys often include a representation of preceding blocks as well as the current block. It also explains why prompt templates matter operationally. Putting stable shared content first creates opportunities for reuse; inserting a unique timestamp at the beginning can destroy them. Measure actual reused tokens and saved prefill time, and verify that the cache is isolated appropriately across model versions and tenants before interpreting a high hit rate as success."
+    ],
+    "recalls": [
+      {
+        "question": "Why can a unique timestamp near the start reduce prefix reuse?",
+        "answer": "The token sequence diverges early, so the later context is no longer the same prefix computation."
+      },
+      {
+        "question": "Can matching text alone prove that two cached prefixes are interchangeable?",
+        "answer": "No. Model, tokenizer, positions, adapters, and other relevant computation settings must also match."
+      }
+    ],
+    "sources": [
+      "https://docs.vllm.ai/en/latest/design/prefix_caching/"
+    ]
+  },
+  {
+    "id": "gqa",
+    "topic": "KV cache",
+    "title": "Query heads do not dictate cache size",
+    "paragraphs": [
+      "Attention uses queries to decide which previous information to retrieve, keys to match against those queries, and values to combine into the result. In ordinary multihead attention, each query head has its own corresponding key and value head. That gives the model flexibility, but it also means storing many distinct keys and values for every cached token.",
+      "Grouped query attention shares a smaller set of KV heads among a larger set of query heads. Suppose a model has 32 query heads and 8 KV heads. Four query heads use each KV head. They still have different queries and can produce different attention weights. Sharing the stored keys and values does not force all four query heads to produce identical outputs.",
+      "Holding layer count, sequence length, head dimension, and cache precision fixed, moving from 32 KV heads to 8 reduces the main KV storage by a factor of four. If the original cache occupied eight GiB, the grouped version would occupy two GiB under those assumptions. This is an architectural comparison, not permission to change an arbitrary trained model's head count at serving time.",
+      "Reduced cache size can increase concurrency and reduce memory traffic, but the measured speedup need not be fourfold. Weight reads, matrix operations, kernel overhead, communication, and scheduling still take time. Multiquery attention takes sharing further by using one KV head. When reading a model configuration, record query heads and KV heads separately, then check how the chosen parallelism layout shards or replicates them across devices. The total model cache and the cache allocated on one GPU are different quantities."
+    ],
+    "recalls": [
+      {
+        "question": "If KV heads fall from 16 to 4 with everything else fixed, what happens to KV storage?",
+        "answer": "The main KV storage becomes one quarter as large. Actual allocations also include overhead and possible replication."
+      },
+      {
+        "question": "Why does a fourfold smaller KV cache not guarantee fourfold faster decoding?",
+        "answer": "Only part of decoding time comes from KV traffic; other computation, weight traffic, and overhead remain."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2305.13245"
+    ]
+  },
+  {
+    "id": "latent-cache",
+    "topic": "KV cache",
+    "title": "Size the representation that is actually cached",
+    "paragraphs": [
+      "A model's hidden size is not automatically the number of values stored per token in its attention cache. Some architectures store a compressed latent representation and reconstruct or absorb parts of the attention computation around it. To estimate memory correctly, start from the tensors the serving kernel actually retains. A familiar formula for another architecture can be confidently wrong.",
+      "Consider a hypothetical cache layout with 24 layers. Each layer stores 512 latent values and 64 positional values per token. If each stored value occupies one byte, one token requires 24 times 576 bytes. That is 13824 bytes, or 13.5 KiB. This example defines the storage layout explicitly; it is not a claim that every latent attention model uses these dimensions or precision.",
+      "For 32768 tokens, the same arithmetic gives 452984832 bytes, exactly 432 MiB. If those values instead occupy two bytes, the raw data doubles to 864 MiB. Scale factors, alignment, block rounding, extra state, and device replication can alter the allocated total. Mixing decimal megabytes with binary mebibytes can create an apparent discrepancy even when both calculations are otherwise correct.",
+      "Use this estimate to form a falsifiable prediction. Divide the measured usable cache pool by bytes per token, then compare the predicted token capacity with the engine's reported slots. If they disagree, investigate the representation, precision, reserved capacity, and sharding assumptions. Do not silently adjust the formula until the numbers match. The point of the estimate is to expose a missing detail in your understanding, especially when a hybrid model uses different kinds of state in different layers."
+    ],
+    "recalls": [
+      {
+        "question": "How much raw cache does the example need for 32768 tokens at two bytes per value?",
+        "answer": "864 MiB, twice the 432 MiB required at one byte per value."
+      },
+      {
+        "question": "Why should hidden size not be substituted directly into every KV size formula?",
+        "answer": "The retained cache representation can be compressed, shared, or architecture specific, and may differ from hidden size."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2405.04434"
+    ]
+  },
+  {
+    "id": "transfer-break-even",
+    "topic": "Cache offloading",
+    "title": "A cache hit can still be slower",
+    "paragraphs": [
+      "Finding cached KV data does not mean using it is the fastest choice. Data in GPU memory is immediately available to an attention kernel. Data in host memory or on another machine must travel through a transfer path first. A scheduler should care about time saved after that transfer, not simply celebrate that an object exists somewhere.",
+      "Use a small numerical model. Suppose recomputing a prefix takes 80 milliseconds. Its cached representation is 400 megabytes, and the effective transfer rate is 20 gigabytes per second. Using decimal units consistently, the bulk transfer needs about 20 milliseconds. Add five milliseconds for lookup, setup, and synchronization. Retrieval costs roughly 25 milliseconds, saving about 55 milliseconds relative to recomputation in this example.",
+      "Now reduce effective bandwidth to four gigabytes per second. The same bytes need about 100 milliseconds before setup costs. Recomputing may be faster. Contention can make a previously beneficial cache tier unhelpful without changing its hit rate. A busy link, small transfers, serialization, or an extra staging copy can all reduce the rate observed by a request compared with a hardware specification.",
+      "The comparison becomes more subtle when transfer overlaps useful computation. Only the portion that delays the request belongs on its critical path. Record bytes, queue delay, transfer duration, and time until the data becomes usable. Then compare saved compute with the actual additional waiting time. A useful experiment varies prefix length and transfer load separately, because bigger prefixes can increase both the compute avoided and the bytes moved. The best decision depends on their relationship, not on size alone."
+    ],
+    "recalls": [
+      {
+        "question": "At 20 GB per second, how long does moving 400 MB take before overhead?",
+        "answer": "About 20 milliseconds, using decimal units and assuming that effective rate is sustained."
+      },
+      {
+        "question": "Why can a higher cache hit rate coexist with worse first token latency?",
+        "answer": "Hits may require slow or queued transfers whose critical path cost exceeds the computation they avoid."
+      }
+    ],
+    "sources": [
+      "https://docs.sglang.io/docs/advanced_features/hicache_design"
+    ]
+  },
+  {
+    "id": "cache-tiers",
+    "topic": "Cache offloading",
+    "title": "Capacity and bandwidth answer different questions",
+    "paragraphs": [
+      "A hierarchy of GPU memory, host memory, and remote storage offers several places to retain reusable state. The fastest tier is usually scarce, while larger tiers cost more time to access. Capacity answers how much data can remain available. Bandwidth and latency answer how quickly a particular request can obtain it. Neither quantity substitutes for the other.",
+      "Imagine a worker with a 24 GiB device cache and a 96 GiB host cache. Moving reusable prefixes to the host can prevent immediate recomputation after device eviction. It does not give the GPU a 120 GiB cache at device memory speed. Before attention can consume a host resident prefix, the required data must be transferred into a representation and location supported by the kernel.",
+      "Suppose each cached prefix occupies one GiB. The device could hold about 24 such independent prefixes and the host about 96, ignoring overhead and any duplicated copies. Whether total unique capacity is near 120 or closer to 96 depends on whether the tiers retain overlapping data. Inclusive and exclusive placement policies make different capacity promises. Count distinct useful objects before adding tier sizes together.",
+      "For diagnosis, draw the path taken by a miss at each level. Mark lookup, eviction, staging, transfer, and computation. A host hit can still trigger a device eviction, and that eviction may itself create traffic. A remote hit may pass through host memory before reaching the device. Measure these stages separately so that an apparently fast backing store does not hide a slow promotion path. The hierarchy succeeds when retaining additional state improves the workload's latency or useful throughput enough to justify its movement costs."
+    ],
+    "recalls": [
+      {
+        "question": "Why is a 24 GiB GPU cache plus a 96 GiB host cache not automatically 120 GiB of unique data?",
+        "answer": "The tiers may retain duplicate copies. Unique capacity depends on the placement and retention policy."
+      },
+      {
+        "question": "What must happen before a host resident prefix can be used by a GPU attention kernel?",
+        "answer": "The required state must reach a location and layout supported by the kernel, usually through a host to device transfer."
+      }
+    ],
+    "sources": [
+      "https://docs.sglang.io/docs/advanced_features/hicache_design"
+    ]
+  },
+  {
+    "id": "cache-metrics",
+    "topic": "Cache offloading",
+    "title": "Choose the denominator before reading a hit rate",
+    "paragraphs": [
+      "The phrase cache hit rate hides several possible measurements. A request hit rate counts requests with some reusable content. A token hit rate counts how many requested prefix tokens were reused. A byte hit rate measures avoided data retrieval, while saved compute time asks another question again. Two systems can report different percentages without disagreeing about any underlying event.",
+      "Imagine ten requests. Nine reuse ten tokens each, and one misses on a prefix containing 10000 tokens. A request metric reporting any reuse says 90 percent hits. Only 90 of 10090 prefix tokens were reused, which is less than one percent. The first number describes how widely reuse occurs. The second describes its volume. Neither alone tells you how many milliseconds were saved.",
+      "Add the memory tier to every interpretation. A device hit avoids a transfer that a host hit still requires. A remote hit can reduce recomputation while increasing network traffic. Report lookup attempts, successful reuse, reused tokens, transfer bytes, and transfer latency where available. Keep the measurement boundaries explicit: a successful metadata lookup is not necessarily a successfully completed transfer or a prefix that the engine ultimately consumes.",
+      "When building a dashboard, place cache statistics next to request latency and useful throughput. Look for causal patterns rather than matching colors on charts. If host hits rise while first token latency worsens, investigate promotion queueing and bandwidth. If hit rate falls but throughput improves, the system may be handling a different request mix. Use stable labels for worker and tier, and avoid unbounded labels such as individual prompt contents or request IDs in a general metrics system."
+    ],
+    "recalls": [
+      {
+        "question": "What is misleading about 90 percent request hits in the example?",
+        "answer": "Most reused requests have tiny prefixes. Fewer than one percent of all requested prefix tokens are reused."
+      },
+      {
+        "question": "Which event is stronger evidence of useful reuse: finding metadata or consuming transferred KV?",
+        "answer": "Consuming the transferred KV. A metadata hit can still fail, queue, or be abandoned before use."
+      }
+    ],
+    "sources": [
+      "https://docs.sglang.io/docs/advanced_features/observability"
+    ]
+  },
+  {
+    "id": "cache-pressure",
+    "topic": "Cache offloading",
+    "title": "Design a workload that actually exceeds the cache",
+    "paragraphs": [
+      "A test does not exercise eviction just because it sends many requests. If they all share the same large prefix, they may reuse one physical cache allocation. If requests finish before more arrive, active memory may remain small. To test pressure, define the amount of distinct cached state the workload creates and the time over which that state must remain available.",
+      "Suppose a device pool holds one million token slots. Independent prefixes of 32000 tokens would fill it after roughly 31 full prefixes, ignoring block rounding and generated tokens. Sending 64 such requests does not guarantee simultaneous pressure if the client serializes them. Conversely, a concurrent burst can exceed active capacity and cause admission queueing before any useful offload behavior appears.",
+      "Separate three experiments. First, use unique prefixes to measure allocation and eviction under pressure. Second, replay a controlled subset to test whether retained host or remote entries avoid recomputation. Third, vary the delay before replay to probe retention. Keep input length, output length, concurrency, and prefix sharing explicit. A warm replay experiment and a cold capacity experiment answer different questions, so their results should not be averaged into one headline.",
+      "Observe device occupancy, host occupancy, eviction counts, transferred bytes, and first token latency together. Predict which tier should fill first using bytes per token and unique prefix count. If it does not, inspect cache sharing, retention rules, and the actual tokenized lengths. A useful test report includes the prediction as well as the measurement. That makes an unexpected result a clue about the implementation instead of an excuse to increase concurrency until a graph finally changes."
+    ],
+    "recalls": [
+      {
+        "question": "Why might 64 requests with a shared 32000 token prefix create little distinct cache pressure?",
+        "answer": "They can share the same physical prefix state, so request count overstates unique stored tokens."
+      },
+      {
+        "question": "What does replaying a subset after device eviction test?",
+        "answer": "Whether another tier retained usable state and whether retrieving it improves latency relative to recomputation."
+      }
+    ],
+    "sources": [
+      "https://docs.sglang.io/docs/advanced_features/hicache_best_practices"
+    ]
+  },
+  {
+    "id": "cache-lifetime",
+    "topic": "Cache offloading",
+    "title": "An eviction policy is a prediction about future reuse",
+    "paragraphs": [
+      "Keeping a completed request's cache is a bet that another request will reuse it. That retained data competes with active requests and other reusable prefixes for finite memory. Eviction therefore expresses a prediction about future value. Recently used data may be reused again, but recency is only a heuristic. A large one time document can displace a small popular system prompt.",
+      "Consider a ten GiB cache containing ten one GiB prefixes. A new five GiB prefix arrives. Retaining it requires removing half the existing contents if no other space is available. If the new prefix is never reused and the displaced prefixes were popular, the decision harms performance. If the new prefix will serve hundreds of requests immediately, the same decision may be beneficial.",
+      "Value depends on more than reuse probability. Include the amount of computation avoided, transfer cost from a lower tier, object size, and how long the object occupies memory. Active data also needs protection: an attention kernel or in flight transfer must not read memory that has been reassigned. Reference counts, ownership rules, and synchronization establish safe lifetimes; an eviction heuristic alone cannot provide that correctness.",
+      "When a cache benchmark behaves strangely, distinguish policy from lifetime bugs. Unexpected misses can come from an unfavorable reuse pattern. Corrupted outputs or stale data can indicate incorrect identity or unsafe reuse of storage. Record when objects become eligible for eviction and when their storage is actually released. In a hierarchy, removing a device copy may preserve a host copy, while deleting the last valid copy forces recomputation. These are different events and deserve different names in logs."
+    ],
+    "recalls": [
+      {
+        "question": "Why can retaining one large prefix reduce overall cache value?",
+        "answer": "It can evict several smaller, more frequently reused prefixes and save less future work than they would."
+      },
+      {
+        "question": "Why is reference tracking needed in addition to an eviction heuristic?",
+        "answer": "Storage must remain valid while kernels or transfers use it; popularity does not establish safe memory lifetimes."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2309.06180"
+    ]
+  },
+  {
+    "id": "roofline",
+    "topic": "GPU performance",
+    "title": "Ask how much work each byte supports",
+    "paragraphs": [
+      "Arithmetic intensity measures floating point operations per byte moved across a particular memory boundary. The boundary matters: bytes fetched from device memory are different from bytes reused in a small on chip cache. A roofline estimate combines intensity with sustained memory bandwidth to bound performance. The other main bound is the processor's compute rate for the relevant operation and precision.",
+      "Take a hypothetical GPU with 100 trillion operations per second of usable compute and one trillion bytes per second of usable memory bandwidth. An operation with intensity ten can support at most ten trillion operations per second from that bandwidth. The compute units may be capable of much more, but they cannot perform work whose inputs have not arrived. The crossover intensity is 100 operations per byte.",
+      "If a change doubles intensity from ten to twenty by reusing data, the bandwidth bound doubles too. If intensity instead rises from 200 to 400, the simple model still caps performance at 100 trillion operations per second. Extra reuse is valuable only if it addresses a limiting resource. Real kernels can also fall below both bounds because of latency, insufficient parallelism, synchronization, or instruction overhead.",
+      "Use the model as a question generator. Estimate operations and bytes, specify which transfers you count, and compare achieved performance with the resulting bounds. If measurements are unexpectedly low, inspect the assumptions rather than labeling every slow kernel memory bound. A kernel can be limited by memory latency without saturating bandwidth. The most useful roofline calculation ends with a concrete experiment, such as changing batch size while measuring device memory traffic and elapsed time."
+    ],
+    "recalls": [
+      {
+        "question": "What is the crossover intensity for 100 trillion operations per second and one trillion bytes per second?",
+        "answer": "100 operations per byte: compute rate divided by memory bandwidth."
+      },
+      {
+        "question": "Why does low bandwidth utilization not prove that a kernel is compute bound?",
+        "answer": "It may be limited by memory latency, insufficient parallel work, synchronization, or another overhead."
+      }
+    ],
+    "sources": [
+      "https://www2.eecs.berkeley.edu/Pubs/TechRpts/2008/EECS-2008-134.html"
+    ]
+  },
+  {
+    "id": "decode-batching",
+    "topic": "GPU performance",
+    "title": "Batching amortizes weight traffic",
+    "paragraphs": [
+      "During a decode step, each active sequence usually contributes one new token to process. With a small batch, multiplying that token's activations by a large weight matrix offers little reuse of each loaded weight. Processing more sequences together lets the same weights contribute to several outputs. That raises the amount of arithmetic performed per byte of weight traffic.",
+      "Use a simplified dense layer with one billion weights stored at two bytes each. Reading the weights once moves two gigabytes. A single token requires roughly two billion floating point operations for its matrix multiplication. Sixteen tokens require roughly 32 billion operations while potentially reusing the same weight data. Ignoring activations and other traffic, intensity rises from about one to about sixteen operations per byte.",
+      "This does not mean a batch of sixteen has the same latency as a batch of one. More arithmetic must execute, and attention reads separate KV state for the different sequences. Larger batches also require more cache memory. Eventually compute, KV traffic, communication, or another resource becomes limiting. The simple weight reuse argument explains an opportunity, not an unlimited linear speedup.",
+      "Distinguish aggregate throughput from each user's experience. A larger batch may deliver more total tokens per second while increasing the interval between tokens for an individual request. Waiting to form a batch can add queueing delay before execution even begins. Measure throughput, first token latency, and intertoken latency together as batch size changes. Then choose a configuration that satisfies the service contract for the actual mix of prompt lengths and output lengths. The highest throughput point is not automatically the most useful operating point."
+    ],
+    "recalls": [
+      {
+        "question": "In the simplified example, what intensity does a batch of sixteen reach when counting only weight bytes?",
+        "answer": "About sixteen operations per byte: 32 billion operations divided by two billion bytes."
+      },
+      {
+        "question": "Why might aggregate tokens per second improve while individual token latency worsens?",
+        "answer": "A larger batch shares weight reads but requires more work per step, so each sequence may wait longer between outputs."
+      }
+    ],
+    "sources": [
+      "https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html"
+    ]
+  },
+  {
+    "id": "attention-io",
+    "topic": "GPU performance",
+    "title": "Do not materialize what you can reduce in tiles",
+    "paragraphs": [
+      "An attention implementation can create a large intermediate matrix of scores between query positions and key positions. For a long prompt, that matrix becomes expensive to write to device memory and read back. The final output is much smaller. This suggests an optimization question: can the computation produce the same mathematical result without storing the entire intermediate at once?",
+      "A tiled implementation processes smaller pieces that fit in faster on chip storage. For attention, it can maintain running normalization information and partial output accumulators while visiting blocks of keys and values. This reduces movement of the large score intermediate through device memory. The central benefit is a better data movement schedule, even when the underlying dense attention arithmetic remains substantial.",
+      "Consider an illustrative square score matrix with 8192 rows and columns. It contains over 67 million elements. At two bytes per element, one fully materialized copy occupies 128 MiB. Writing and then reading it already moves 256 MiB, before considering other tensors or heads. Eliminating that round trip can matter even if the processor performs roughly the same number of mathematical operations.",
+      "Keep the scope of the optimization clear. Avoiding a full score matrix does not remove the persistent KV cache needed for future decode steps. It also does not make all attention linear in sequence length. Dense prefill attention still compares many query and key positions. When evaluating a faster kernel, check numerical tolerances as well as latency, because changing reduction order can change floating point rounding. Then measure the complete serving path to see how much of the kernel improvement survives scheduling and other work."
+    ],
+    "recalls": [
+      {
+        "question": "How large is one 8192 by 8192 score matrix at two bytes per element?",
+        "answer": "128 MiB, because it has 67108864 elements and each occupies two bytes."
+      },
+      {
+        "question": "Does avoiding a materialized score matrix eliminate the persistent KV cache?",
+        "answer": "No. Score intermediates and the retained keys and values have different purposes and lifetimes."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2205.14135"
+    ]
+  },
+  {
+    "id": "quantization",
+    "topic": "GPU performance",
+    "title": "Smaller numbers help only along the relevant path",
+    "paragraphs": [
+      "Quantization represents values with fewer bits, usually using scale information to map between stored integers or low precision values and the quantities used by the model. Smaller representations can reduce memory capacity requirements and transfer traffic. They may also enable faster arithmetic, but only when the implementation and hardware support the relevant operations efficiently.",
+      "Suppose a weight tensor contains ten billion values. At two bytes per value, its raw storage is twenty gigabytes. At one byte per value, raw storage falls to ten gigabytes. Scale factors, padding, and metadata add overhead. If a decode workload is primarily waiting for those weights to arrive from memory, reducing their bytes can help. If another resource dominates, the benefit can be much smaller.",
+      "Weight precision, activation precision, and KV cache precision are separate choices. Quantizing weights does not automatically shrink the cache, and quantizing the cache does not automatically accelerate every matrix operation. Conversions and dequantization can introduce work. Outliers and accumulated numerical error can affect output quality. A useful benchmark therefore records exactly which tensors use which formats and which kernels actually execute.",
+      "Treat a performance claim as a joint statement about speed and acceptable behavior. Compare latency and throughput on representative workloads, then test quality with a method suitable for the intended use. Do not infer correctness from one plausible generated answer. Also distinguish capacity gains from execution gains: fitting a larger batch may increase total throughput even when an individual kernel becomes slightly slower. The causal explanation should identify whether fewer bytes, faster arithmetic, a changed batch size, or another effect produced the observed result."
+    ],
+    "recalls": [
+      {
+        "question": "Does quantizing only weights reduce KV cache memory?",
+        "answer": "No. KV precision is a separate storage choice."
+      },
+      {
+        "question": "What extra information is needed beyond saying a model uses eight bit inference?",
+        "answer": "Which tensors and formats use eight bits, their scaling and metadata, the executed kernels, and the measured quality and performance."
+      }
+    ],
+    "sources": [
+      "https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/work-with-quantized-types.html"
+    ]
+  },
+  {
+    "id": "memory-access",
+    "topic": "GPU performance",
+    "title": "Useful bytes and transferred bytes can differ",
+    "paragraphs": [
+      "A GPU memory instruction does not necessarily transfer only the exact bytes a program requested. Hardware serves memory through transactions with alignment and granularity constraints. When nearby threads request nearby addresses, their accesses can often be combined efficiently. When they request scattered locations, more transactions may be required to deliver the same number of useful values.",
+      "Imagine a group of threads that collectively needs 128 useful bytes. With a favorable layout, those bytes can be served with a small number of compact transactions. With a scattered layout, the hardware may fetch many separate regions containing mostly unwanted data. The program still consumes 128 useful bytes, but the memory system moves considerably more. Effective bandwidth for the algorithm falls even if the physical link remains busy.",
+      "This is why tensor layout belongs in performance reasoning. Adjacent logical elements are not always adjacent in memory, especially after transposes, slicing, or sharding. A kernel can be mathematically correct while making poor use of the memory subsystem. Caching may hide some repeated accesses, so the relationship between source code indexing and measured traffic should be checked rather than assumed.",
+      "A practical investigation begins by identifying which dimension neighboring threads traverse and how that maps to addresses. Compare contiguous and strided access patterns while holding the amount of useful work fixed. Measure elapsed time and actual transferred bytes when profiling tools permit it. Be careful with tiny tests that fit entirely in cache: they can conceal the cost you expected to observe in device memory. The relevant question is not merely how much data exists, but how efficiently the kernel turns memory transactions into useful operands."
+    ],
+    "recalls": [
+      {
+        "question": "Why can two kernels reading the same useful data move different amounts of memory traffic?",
+        "answer": "Their access patterns can require different transaction counts and fetch different amounts of unused data."
+      },
+      {
+        "question": "Why can a tiny repeated benchmark hide poor device memory access?",
+        "answer": "Its data may remain in cache, so it no longer exercises the intended device memory traffic."
+      }
+    ],
+    "sources": [
+      "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html"
+    ]
+  },
+  {
+    "id": "continuous-batching",
+    "topic": "Scheduling",
+    "title": "A batch does not have to keep the same members",
+    "paragraphs": [
+      "Requests rarely generate the same number of output tokens. In a static batch, short requests can finish while longer ones continue occupying the execution schedule. If the system waits for the entire batch before admitting new work, completed slots provide no useful output. Continuous batching changes membership between iterations so that new requests can replace finished ones.",
+      "Imagine four requests requiring two, four, six, and eight decode steps. A rigid schedule that reserves four slots for eight iterations provides 32 slot iterations but performs only twenty useful request steps. An iteration level scheduler can admit replacement work when the shorter requests finish. This arithmetic illustrates wasted opportunities; actual GPU execution is more complicated than four identical independent seats.",
+      "Admission still has constraints. A new request may need prefill computation before it can join decode, and its KV cache must fit. Adding too many sequences can lengthen every iteration. The scheduler must balance currently streaming requests against queued arrivals, while respecting memory capacity and latency objectives. Replacing an empty slot is beneficial only if the new work does not create a worse bottleneck elsewhere.",
+      "When testing continuous batching, vary output length distributions rather than using only identical requests. Track active sequences, queued requests, tokens processed per iteration, and the latency experienced by each request. A system can show high GPU utilization while some users wait too long for admission. Also check cancellation: work for a disconnected client should eventually release its resources. The key mechanism is flexible membership over time, while the policy determines which eligible request gets the next opportunity and how much work one iteration may contain."
+    ],
+    "recalls": [
+      {
+        "question": "How many useful request steps do lengths two, four, six, and eight contain?",
+        "answer": "Twenty. A rigid four slot schedule lasting eight iterations offers 32 slot iterations, illustrating unused capacity after early completions."
+      },
+      {
+        "question": "Why can a newly free slot still fail to admit a request immediately?",
+        "answer": "The request may need prefill, available KV capacity, or a scheduling budget that preserves latency for existing requests."
+      }
+    ],
+    "sources": [
+      "https://www.usenix.org/conference/osdi22/presentation/yu"
+    ]
+  },
+  {
+    "id": "chunked-prefill",
+    "topic": "Scheduling",
+    "title": "Break long work into schedulable pieces",
+    "paragraphs": [
+      "A long prompt can occupy the GPU with prefill work while existing requests wait for their next decode step. The model computation may be efficient, yet streaming users experience a noticeable pause. Chunked prefill divides prompt processing into smaller portions, giving the scheduler opportunities to interleave other work between them. This changes when work runs, not what the prompt means.",
+      "Suppose a hypothetical full prefill takes 120 milliseconds, and a decode iteration normally takes ten milliseconds. Running the prefill as one uninterrupted unit can add a large gap to ongoing streams. Splitting it into six portions creates more scheduling opportunities. The pieces need not take exactly twenty milliseconds each, because kernel efficiency, attention over prior context, and overhead can change with chunk size.",
+      "Smaller chunks are not always better. They may reduce matrix efficiency, require more scheduling steps, or repeat overhead. Larger chunks improve amortization but can worsen interference with decode. The right size depends on active batch size, prompt lengths, hardware, and the latency contract. A token budget is a scheduling control, not a universal conversion from tokens to milliseconds.",
+      "A useful experiment sweeps chunk size while keeping the arrival process and workload mix fixed. Measure first token latency for new requests and intertoken latency for already active ones. Also measure aggregate throughput, because improving responsiveness at an excessive throughput cost may reduce useful capacity. Distinguish queueing before a chunk from time spent executing it. The outcome should explain which requests benefit, which requests wait longer, and whether the chosen setting keeps both groups inside their declared service objectives under sustained load."
+    ],
+    "recalls": [
+      {
+        "question": "What problem does chunked prefill address for requests that are already decoding?",
+        "answer": "It creates opportunities to run decode between portions of a long prefill, reducing long uninterrupted interference."
+      },
+      {
+        "question": "Why is the smallest chunk size not automatically optimal?",
+        "answer": "Small chunks can lose matrix efficiency and add scheduling or kernel overhead, reducing throughput or increasing total prefill time."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2308.16369"
+    ]
+  },
+  {
+    "id": "pd-disaggregation",
+    "topic": "Scheduling",
+    "title": "Separating phases creates a transfer boundary",
+    "paragraphs": [
+      "Prefill and decode have different execution patterns. Prefill processes many known prompt tokens, while ordinary decode repeatedly processes a small number of new tokens per active sequence. Placing them on separate workers can let each pool use its own batching and hardware allocation. It also reduces one source of interference: a large prefill no longer directly occupies the same worker that is streaming decode.",
+      "The separation creates a handoff. Decode needs the state produced by prefill, including the relevant KV cache and request metadata. Moving that state consumes bandwidth and can add queueing and synchronization delay. The architecture trades some local interference for communication and coordination. Whether it wins depends on workload, transfer path, pool sizing, and the service objective.",
+      "Suppose a request produces 800 megabytes of transferable state. At an effective forty gigabytes per second, moving the bytes alone takes twenty milliseconds in decimal units. Setup and queueing add time, although some movement may overlap other work. If separation removes only five milliseconds of interference, that transfer is difficult to justify. If it prevents repeated long stalls across many streams, the aggregate benefit may be substantial.",
+      "Watch both pools as load changes. Too little prefill capacity builds a queue before the handoff. Too little decode capacity leaves completed prefills waiting for a consumer and may tie up memory. More transfer bandwidth cannot solve either imbalance by itself. Measure end to end request latency, transfer timing, and occupancy on both sides. A good deployment decision explains how each added resource changes the limiting stage, instead of treating disaggregation as an automatic improvement for every workload."
+    ],
+    "recalls": [
+      {
+        "question": "What new cost appears when prefill and decode run on separate workers?",
+        "answer": "The required state and metadata must be handed off, adding transfer, queueing, synchronization, and coordination costs."
+      },
+      {
+        "question": "How long is the raw transfer of 800 MB at 40 GB per second?",
+        "answer": "Twenty milliseconds with decimal units, before overhead and assuming sustained effective bandwidth."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2401.09670"
+    ]
+  },
+  {
+    "id": "speculative-decoding",
+    "topic": "Scheduling",
+    "title": "Useful speculation depends on accepted progress",
+    "paragraphs": [
+      "Autoregressive generation normally waits for one token before computing the next. Speculative decoding introduces a cheaper way to propose several candidate tokens, then asks the target model to verify them together. When several proposals are accepted, one verification step advances the output by multiple tokens. The benefit comes from doing some sequential guessing cheaply and amortizing expensive target work.",
+      "The verification procedure matters. Exact speculative sampling uses acceptance and correction rules designed to preserve the target distribution. Simply accepting every plausible draft would change the model's behavior. Greedy decoding and sampling also require different reasoning. When comparing implementations, establish what correctness guarantee is claimed before treating their output speed as directly comparable.",
+      "Use a simplified timing example. A normal target step takes ten milliseconds. A speculative cycle spends four milliseconds drafting and twelve milliseconds verifying. If it emits four valid output tokens on average, it spends four milliseconds per emitted token, a useful improvement. If it emits only one, the sixteen millisecond cycle is slower than the original. These numbers describe a toy model, not a universal speedup formula.",
+      "Acceptance rate alone is insufficient. Drafting may consume significant compute, verification becomes more expensive with longer proposals, and high batch sizes can already use the target efficiently. Measure emitted tokens per cycle, draft cost, verification cost, and end to end latency. Count the actual output progress, including any correction or bonus token supplied by the algorithm. A stronger draft is worthwhile only when its additional accepted progress compensates for its extra cost. The best proposal length can change with the workload and current serving load."
+    ],
+    "recalls": [
+      {
+        "question": "A cycle costs sixteen milliseconds and emits four tokens. What is its average time per emitted token?",
+        "answer": "Four milliseconds per token in the simplified model."
+      },
+      {
+        "question": "Why is a higher acceptance rate not enough to prove a speedup?",
+        "answer": "Draft and verification costs may increase, and the number of emitted tokens per total cycle time determines useful progress."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2211.17192"
+    ]
+  },
+  {
+    "id": "queueing",
+    "topic": "Scheduling",
+    "title": "Near saturation, small bursts become long waits",
+    "paragraphs": [
+      "A server can process requests quickly once they start and still provide poor latency because requests wait in a queue. Arrival rate describes incoming work per unit time. Service capacity describes how much work can be completed. As sustained offered load approaches capacity, spare room to absorb bursts shrinks. Variability then matters even when the average arrival rate looks acceptable.",
+      "Imagine a worker capable of completing 100 comparable requests per second. An average arrival rate of fifty leaves substantial recovery capacity after a burst. An average of 99 leaves almost none. The real workload contains different prompt lengths and output lengths, so request counts may hide large differences in work. A burst of long prompts can overwhelm a pool whose ordinary request rate seemed comfortably below a benchmark maximum.",
+      "Little's law provides a useful consistency check for a stable system: average work in the system equals arrival rate times average time in the system. At twenty requests per second and an average end to end time of three seconds, expect about sixty requests in flight on average. Match the boundaries: including network time in latency while counting only GPU active requests produces an invalid comparison.",
+      "For capacity planning, measure latency distributions as offered load rises rather than reporting one maximum throughput number. Look for the point where queues grow and objectives begin failing. Admission control, bounded queues, workload isolation, and additional capacity address different parts of the problem. Rejecting work can protect admitted requests, but rejected and timed out requests must remain visible in the report. Otherwise the system appears healthy by quietly removing its hardest cases from the denominator."
+    ],
+    "recalls": [
+      {
+        "question": "At twenty arrivals per second and three seconds average time in a stable system, how many requests are in flight on average?",
+        "answer": "Sixty, using Little's law and matching measurement boundaries."
+      },
+      {
+        "question": "Why can 99 requests per second be fragile on a server capable of 100?",
+        "answer": "Almost no spare capacity remains to drain bursts or absorb variability in request work."
+      }
+    ],
+    "sources": [
+      "https://web.mit.edu/urban_or_book/www/book/chapter4/4.4.html"
+    ]
+  },
+  {
+    "id": "tensor-parallelism",
+    "topic": "Parallelism and networks",
+    "title": "Splitting a matrix introduces communication",
+    "paragraphs": [
+      "Tensor parallelism distributes pieces of a layer's computation across devices. A large weight matrix can be split so that each GPU stores and processes only part of it. This helps a model fit and can reduce computation per device. The pieces still have to form the correct layer output, so the layout determines where communication and synchronization are required.",
+      "For a simple example, split the input dimension of a matrix multiplication across two GPUs. Each GPU computes a partial contribution to the same output elements. Adding those contributions produces the full result. An allreduce can make the combined output available to both devices. Splitting a different dimension creates different intermediate layouts and may call for gathering or a later reduction instead.",
+      "The performance question is whether saved local work exceeds the communication overhead. Suppose one device takes twenty milliseconds for a stage. Two devices reduce local computation to eleven milliseconds, but add four milliseconds of communication that cannot be hidden. The stage now takes fifteen milliseconds, which is a speedup but far from twice as fast. Smaller batches can make fixed communication latency especially visible.",
+      "Do not assume that doubling the number of GPUs halves every memory allocation. Some tensors are replicated, some are sharded, and KV heads may interact with the chosen parallelism degree. Record the actual layout and interconnect topology. Communication inside a tightly connected node can behave differently from communication across nodes. Benchmark the intended deployment arrangement, then inspect both collective time and kernel time. A scaling result without topology and workload details is missing the information needed to explain why adding devices helped or hurt."
+    ],
+    "recalls": [
+      {
+        "question": "If two GPUs compute contributions to the same output elements, what operation combines them?",
+        "answer": "A reduction, such as a sum; an allreduce also distributes the combined result to every participating rank."
+      },
+      {
+        "question": "Why might tensor parallelism help memory capacity more than latency at small batches?",
+        "answer": "It shards weights, but communication latency and synchronization can dominate the reduced local compute."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/1909.08053",
+      "https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/collectives.html"
+    ]
+  },
+  {
+    "id": "pipeline-parallelism",
+    "topic": "Parallelism and networks",
+    "title": "A pipeline needs independent work to stay full",
+    "paragraphs": [
+      "Pipeline parallelism places different groups of model layers on different devices. Activations move from one stage to the next. This divides weight storage and allows several pieces of independent work to occupy different stages simultaneously. It does not let one token skip its dependencies: later layers still need the outputs produced by earlier layers.",
+      "Imagine four stages, each taking five milliseconds. One piece of work needs about twenty milliseconds to traverse them, ignoring communication. Once the pipeline is full, independent pieces can ideally finish every five milliseconds. The first result's latency and the steady state completion interval are different quantities. Confusing them makes pipeline parallelism sound as though it accelerates every individual request by the number of stages.",
+      "Uneven stages constrain throughput. If one stage takes eight milliseconds while the others take four, the slow stage limits the ideal completion interval to eight milliseconds. Upstream work can queue and downstream stages can wait. Partitioning by equal layer count may not balance time when layers differ in computation, communication, or memory access. Measure stage duration rather than assuming symmetry.",
+      "Autoregressive serving adds another dependency: a sequence's next token depends on the result of its previous token. Keeping a pipeline busy therefore requires enough independent requests or suitable scheduling of work. Small traffic volumes can expose bubbles and leave devices idle. More concurrency can fill the pipeline but also increases memory use and queueing. Evaluate both latency and throughput under realistic load, including startup and drain periods. The useful mental model is a sequence of dependent stations carrying several independent jobs, not four workers solving one station's task simultaneously."
+    ],
+    "recalls": [
+      {
+        "question": "For four five millisecond stages, what are the ideal first result latency and steady completion interval?",
+        "answer": "About twenty milliseconds for the first traversal and five milliseconds between independent completions once full, excluding communication."
+      },
+      {
+        "question": "Why can equal layer counts still produce an unbalanced pipeline?",
+        "answer": "Layers may differ in execution time, communication, and memory behavior, so equal counts do not imply equal stage durations."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/1811.06965"
+    ]
+  },
+  {
+    "id": "expert-parallelism",
+    "topic": "Parallelism and networks",
+    "title": "Sparse computation still needs data movement",
+    "paragraphs": [
+      "A mixture of experts layer routes each token to a selected subset of expert networks. The model may contain many experts while activating only a few for one token. Expert parallelism places those experts on different devices. This distributes expert weights, but token activations must reach the devices that host their selected experts and the outputs must return for combination.",
+      "Think of three stages: dispatch, expert computation, and combine. Dispatch groups and transfers activations according to routing decisions. Experts process their assigned tokens, often with grouped matrix operations. Combine restores the logical token order and merges contributions using the model's routing weights. A fast expert matrix multiplication does not guarantee a fast layer if dispatch or combine dominates.",
+      "Suppose four devices each have capacity for 100 routed token assignments per step. A perfectly balanced step with 400 assignments can use all four. If routing sends 250 assignments to one device and fifty to each other device, the busy device determines completion time unless a specific mechanism changes the situation. The total assignment count is unchanged, but the distribution creates a bottleneck.",
+      "Measure routing skew, bytes transferred, per expert token counts, and the time spent in each stage. Very small expert batches may use compute units inefficiently even when the overall request batch seems large. Network topology also matters because assignments can cross expensive links. Replicating popular experts or changing placement can help in some systems, but those choices consume memory and require coordination. The important distinction is between sparse arithmetic and cheap execution: fewer active parameters do not eliminate synchronization, load imbalance, or communication costs."
+    ],
+    "recalls": [
+      {
+        "question": "Why can one heavily selected expert slow an entire step?",
+        "answer": "Its hosting device can become the straggler while others finish early; completion depends on the overloaded work."
+      },
+      {
+        "question": "What three stages should be separated when profiling an expert parallel layer?",
+        "answer": "Dispatch, expert computation, and combine, including their transfers and synchronization."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2211.15841"
+    ]
+  },
+  {
+    "id": "rdma",
+    "topic": "Parallelism and networks",
+    "title": "Remote memory access still requires a protocol",
+    "paragraphs": [
+      "RDMA lets network hardware move data between registered memory regions with less involvement from the remote CPU in the data path than an ordinary application copy loop. It can be useful for moving large cache blocks. It does not make remote memory identical to local memory, and it does not remove the need for ownership, addressing, access control, and completion handling.",
+      "A transfer needs a destination or source region that has been prepared for the operation. The participants exchange information identifying the endpoint, memory location, permitted access, and amount of data. The exact mechanism depends on the transport and operation. An application also needs a control protocol to decide which object those bytes represent and when the location remains valid.",
+      "Imagine fetching a cached prefix from another worker. A metadata lookup identifies the object and its current storage. The transfer then moves bytes into a buffer the receiving side owns. Only after the appropriate completion and synchronization steps may a consumer safely use that buffer. Finding a remote address does not prove the object is still alive or that its contents have arrived.",
+      "Correctness and performance meet at these boundaries. Registration, small message overhead, queue depth, topology, congestion, and staging copies affect observed latency and bandwidth. Direct access to GPU memory requires additional support in the platform and software path; RDMA by itself does not guarantee that every transfer bypasses host memory. When reading a performance graph, ask where the source and destination buffers reside, what completion means, and whether the measured time includes lookup and preparation. Those details determine whether a benchmark predicts the behavior of a real cache retrieval."
+    ],
+    "recalls": [
+      {
+        "question": "Why is a remote address insufficient to safely consume cached KV data?",
+        "answer": "The application also needs valid ownership and identity, access permissions, a completed transfer, and the required synchronization."
+      },
+      {
+        "question": "Does RDMA alone guarantee a direct transfer into GPU memory?",
+        "answer": "No. That path needs suitable hardware, software, memory registration, and GPU direct support."
+      }
+    ],
+    "sources": [
+      "https://docs.nvidia.com/networking/display/rdmaawareprogrammingv17"
+    ]
+  },
+  {
+    "id": "bandwidth-delay",
+    "topic": "Parallelism and networks",
+    "title": "Keep enough data in flight to use a link",
+    "paragraphs": [
+      "Bandwidth describes how quickly a link can carry data once it is busy. Latency describes how long an individual operation or response takes. A high bandwidth path can still deliver poor throughput when the sender repeatedly waits for a round trip before sending more. Keeping enough work in flight is necessary to avoid leaving the link idle between small exchanges.",
+      "The bandwidth delay product estimates how many bytes correspond to one round trip at the target rate. Consider a path capable of ten gigabytes per second with a round trip time of 100 microseconds. Multiplying the two gives one megabyte. A transfer protocol that permits only a tiny fraction of that amount outstanding may struggle to reach the available rate.",
+      "This does not mean every application should increase concurrency without limit. More outstanding transfers require buffers and can increase queueing or congestion. The transport, receiver, and application must all handle the chosen amount of work safely. A large window cannot create bandwidth that a shared link lacks. Small object retrieval may also remain latency dominated even when large streaming transfers achieve excellent throughput.",
+      "When testing a cache transfer path, vary both object size and the number of concurrent transfers. Plot useful bytes per second alongside completion latency. A throughput plateau with increasing latency suggests that additional concurrency is mostly building queues. If throughput remains low, inspect preparation costs, serialization, staging, and receiver behavior. The right question is how much independent work is needed to keep the limiting resource occupied, and where extra work starts to harm the requests waiting behind it. That threshold belongs to the measured path, not just the advertised network speed."
+    ],
+    "recalls": [
+      {
+        "question": "What is the bandwidth delay product of 10 GB per second and 100 microseconds?",
+        "answer": "One megabyte, using decimal units."
+      },
+      {
+        "question": "What does flat throughput with rising latency suggest as concurrency increases?",
+        "answer": "The path may already be saturated, so additional work mainly adds queueing rather than useful transfer rate."
+      }
+    ],
+    "sources": [
+      "https://www.rfc-editor.org/rfc/rfc7323"
+    ]
+  },
+  {
+    "id": "latency-boundaries",
+    "topic": "Measurement and operations",
+    "title": "Measure from the place the user waits",
+    "paragraphs": [
+      "Time to first token measures how long a request waits before its first generated output becomes visible at the chosen measurement boundary. Intertoken latency measures gaps between later outputs. End to end latency includes the complete request. These quantities describe different aspects of the experience, and each depends on where the timestamps are recorded.",
+      "Suppose a request spends 200 milliseconds in a gateway queue, 100 milliseconds waiting at a worker, and 300 milliseconds processing before its first output. A client may observe roughly 600 milliseconds plus network and protocol costs. A metric starting at worker execution could report only 300 milliseconds. Both clocks can be accurate while describing different boundaries. Labeling either number simply latency invites confusion.",
+      "Streaming adds another complication. An engine can produce tokens promptly while a proxy or client library buffers them into larger chunks. Client observed chunk gaps are then not necessarily the engine's token intervals. Tokenization also means that one visible word is not always one token. Define what is counted before comparing a dashboard with what a person sees on screen.",
+      "A practical diagnosis follows timestamps through the path: client send, gateway arrival, worker admission, execution start, first output, and completion. Use synchronized clocks or durations measured consistently within components when comparing stages. Separate queueing from execution, and include failures and timeouts in the overall report. If first token latency rises while execution time stays stable, investigate waiting and transport before changing a kernel. The objective is to explain the delay experienced by the caller, not to choose whichever internal timer produces the smallest number."
+    ],
+    "recalls": [
+      {
+        "question": "Why can the client report 600 milliseconds while an engine timer reports 300?",
+        "answer": "The engine timer may exclude gateway and worker queueing, network time, or other stages outside its boundary."
+      },
+      {
+        "question": "Can a client observed streaming chunk interval always be treated as intertoken latency?",
+        "answer": "No. Buffering and batching of tokens into chunks can change the observed intervals."
+      }
+    ],
+    "sources": [
+      "https://docs.sglang.io/docs/advanced_features/observability"
+    ]
+  },
+  {
+    "id": "goodput",
+    "topic": "Measurement and operations",
+    "title": "Count work that satisfies the service contract",
+    "paragraphs": [
+      "Raw throughput counts completed work per unit time. Goodput counts useful work according to an explicit success rule. In inference serving, that rule may require requests to meet first token and intertoken latency objectives as well as complete successfully. A system can improve raw tokens per second by batching more aggressively while delivering a worse experience to its callers.",
+      "Consider two configurations serving the same workload. Configuration A completes 100 requests per second, but only seventy satisfy the declared latency contract. Configuration B completes ninety requests per second, and 85 satisfy it. Under a request based goodput definition, B provides more useful capacity. The example would need different arithmetic for a token based definition, especially if request output lengths vary.",
+      "Write the success rule before measuring. Decide whether a request must satisfy every condition, which timestamps define latency, and how errors, cancellations, and timeouts are handled. Decide whether the unit is requests or tokens. A p99 target over a time window and a per request deadline are related but distinct statements. Do not switch definitions after seeing which configuration wins.",
+      "Goodput makes optimization tradeoffs concrete. A change that saves compute but causes tail stalls may reduce useful capacity. A router that protects short requests may improve one workload class while harming another, so report classes separately and explain the combined objective. Keep the offered load and request mix fixed when comparing settings. The final result should state how much valid work the system delivers while honoring its contract, including the cost of capacity used to achieve it, rather than presenting a peak rate detached from service quality."
+    ],
+    "recalls": [
+      {
+        "question": "Which example configuration has higher request goodput, A with seventy compliant requests or B with 85?",
+        "answer": "B, with 85 compliant requests per second, despite its lower raw completion rate."
+      },
+      {
+        "question": "Why must the goodput unit and success rule be chosen before benchmarking?",
+        "answer": "Different definitions can change the winner; choosing afterward makes the comparison ambiguous or biased."
+      }
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2401.09670"
+    ]
+  },
+  {
+    "id": "percentiles",
+    "topic": "Measurement and operations",
+    "title": "Averages of percentiles are not pooled percentiles",
+    "paragraphs": [
+      "A percentile describes a position in a distribution. A p99 latency is a threshold near which 99 percent of the measured observations are at or below it, subject to the estimator used. It does not describe the average request, and it does not tell you how severe the slowest one percent becomes. Tail measurements need enough observations and clear boundaries.",
+      "Suppose worker A handles 10000 requests and worker B handles ten. Averaging their p99 values gives each worker equal weight despite their very different traffic volumes. Even a traffic weighted average of worker percentiles does not generally recover the percentile of all requests. Percentiles are not additive summaries; the distribution's shape matters.",
+      "Histograms retain counts across value ranges so that compatible observations from several workers can be combined before estimating a percentile. Bucket resolution affects accuracy. If a latency objective lies inside a very wide bucket, the histogram may not distinguish nearby behaviors well. A threshold aligned with a bucket boundary can support a direct count of observations meeting that threshold, which is a different and often useful calculation.",
+      "When building a dashboard, aggregate compatible bucket counts over a defined time window, then calculate the percentile. Keep workload classes separate when their contracts differ. Check sample counts and error rates alongside the latency panel, because a quiet worker or a system dropping difficult requests can look deceptively healthy. Use the same observation definition across versions: per token gaps, per request average token latency, and whole request duration produce different distributions. A precise label and denominator often improve a graph more than another decimal place in its displayed value."
+    ],
+    "recalls": [
+      {
+        "question": "Why is averaging two workers' p99 values generally wrong for a fleet p99?",
+        "answer": "A percentile is not additive, and separate percentile values discard the distribution information needed for pooling."
+      },
+      {
+        "question": "What should be combined before estimating a percentile across workers?",
+        "answer": "Compatible histogram observations or bucket counts over the intended window, with appropriate handling for the histogram type."
+      }
+    ],
+    "sources": [
+      "https://prometheus.io/docs/practices/histograms/"
+    ]
+  },
+  {
+    "id": "load-generation",
+    "topic": "Measurement and operations",
+    "title": "Your client can hide the overload you wanted to measure",
+    "paragraphs": [
+      "A closed loop load generator sends a fixed number of concurrent requests and submits replacements as earlier requests finish. If the server slows down, replacements arrive more slowly. An open loop generator schedules arrivals according to an external rate or process, allowing outstanding work to grow when service falls behind. These are different experiments, even if they briefly report the same request rate.",
+      "Imagine ten clients that each wait for completion before sending another request. At one second per response, they offer roughly ten requests per second. If response time rises to five seconds, they offer only about two per second. This feedback reduces pressure precisely when the server is struggling. The resulting graph can conceal the queue growth that would occur under an independent incoming workload.",
+      "Neither mode is universally wrong. Closed loop testing is useful for understanding a bounded population of active clients and sweeping concurrency. Open loop testing helps examine behavior under a specified arrival rate, including overload. The client must itself be capable of maintaining the schedule, and scheduled versus actual send times should be visible. Otherwise a saturated load generator can masquerade as a server limit.",
+      "Report arrival mode, offered rate, achieved rate, concurrency, request lengths, prefix sharing, and errors. Include warmup and measurement windows, and preserve enough data to identify stalled or unfinished requests. When a latency spike occurs, ask whether the generator kept offering work or quietly slowed down. A benchmark is a model of demand, not just a command that produces a tokens per second number. Its feedback behavior determines which production failures it can reveal and which it may systematically miss."
+    ],
+    "recalls": [
+      {
+        "question": "What happens to the example closed loop arrival rate when response time grows from one to five seconds?",
+        "answer": "It falls from roughly ten to two requests per second for ten clients issuing one request at a time."
+      },
+      {
+        "question": "Why record scheduled and actual send times in an open loop test?",
+        "answer": "They reveal whether the generator maintained the intended arrival process or became a bottleneck itself."
+      }
+    ],
+    "sources": [
+      "https://github.com/ai-dynamo/aiperf/blob/main/docs/tutorials/request-rate-concurrency.md"
+    ]
+  },
+  {
+    "id": "readiness",
+    "topic": "Measurement and operations",
+    "title": "A running process is not necessarily a ready model",
+    "paragraphs": [
+      "A model server can be alive before it is ready to serve useful traffic. It may still be loading weights, allocating cache memory, compiling kernels, or initializing communication. Process liveness asks whether the process should remain running. Readiness asks whether it should receive requests now. Treating these as the same signal can route users into a long startup delay or trigger unnecessary restarts.",
+      "Consider a worker whose process starts in two seconds but needs another forty seconds to load and initialize its model. Marking it ready at process start makes requests wait for work that the scheduler may have assumed was already complete. Conversely, a liveness check that fails during expected initialization can repeatedly restart the worker and prevent it from ever becoming ready.",
+      "Kubernetes readiness checks can control whether a pod is included among the ready endpoints used by a Service. That does not automatically make every external router or existing connection behave as desired. A serving system also needs a clear drain procedure: stop assigning new work, allow or deliberately terminate existing requests, and release resources safely. Long lived streaming connections make the distinction especially visible.",
+      "Measure cold start stages separately so that optimization targets the actual delay. Faster weight retrieval helps only the portion spent retrieving weights; kernel preparation or coordination may still dominate. When testing scale out, record the time from capacity request to useful completed traffic, not just container startup. Also verify that health checks describe the model instance and dependencies needed by the service. A healthy operating system and a responsive HTTP endpoint are useful signals, but they are not by themselves proof of available inference capacity."
+    ],
+    "recalls": [
+      {
+        "question": "Why should liveness and readiness be separate during model startup?",
+        "answer": "The process can be healthy while still loading or initializing. Restarting it or routing traffic too early can both cause problems."
+      },
+      {
+        "question": "What is a more useful scale out metric than container startup time alone?",
+        "answer": "Time from requesting capacity until the new worker serves useful traffic, including loading, initialization, readiness, and routing."
+      }
+    ],
+    "sources": [
+      "https://kubernetes.io/docs/concepts/workloads/pods/probes/",
+      "https://kubernetes.io/docs/concepts/services-networking/service/"
+    ]
+  }
+]

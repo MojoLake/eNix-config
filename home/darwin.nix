@@ -23,6 +23,8 @@ let
   };
 in
 {
+  imports = [ ./focusguard.nix ];
+
   # Enable flakes for this user without touching the system nix.conf.
   xdg.configFile."nix/nix.conf".text = ''
     experimental-features = nix-command flakes
@@ -38,7 +40,9 @@ in
   ];
 
   # Desktop modifier exceptions; the Command/Option swap remains in macOS settings.
-  home.file.".hammerspoon/init.lua".source = ../dotfiles/hammerspoon/init.lua;
+  home.file.".hammerspoon/init.lua".source =
+    config.lib.file.mkOutOfStoreSymlink
+      "${config.home.homeDirectory}/eNix-config/dotfiles/hammerspoon/init.lua";
   launchd.agents.hammerspoon = {
     enable = true;
     config = {
