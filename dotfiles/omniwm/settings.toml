@@ -167,6 +167,21 @@ gridRow = 1
 monitorDisplayUUID = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
 monitorName = "Built-in Retina Display"
 
+[[routing.arrangements]]
+id = "B363B118-330C-4F76-846F-54E7F40FBB98"
+
+[[routing.arrangements.monitors]]
+gridColumn = 0
+gridRow = 0
+monitorDisplayUUID = "74832D64-D294-467B-98C4-685986552FDC"
+monitorName = "DELL S3425DW"
+
+[[routing.arrangements.monitors]]
+gridColumn = 0
+gridRow = 1
+monitorDisplayUUID = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
+monitorName = "Built-in Retina Display"
+
 [scratchpads]
 
 [scratchpads.labels]
