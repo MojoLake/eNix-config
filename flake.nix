@@ -56,7 +56,11 @@
       homeDirectory = "/home/mojolake";
       extraSpecialArgs = {
         wifiManager = wifi-manager.packages.x86_64-linux.default.overrideAttrs (old: {
-          patches = (old.patches or []) ++ [ ./patches/wifi-manager-audio-callback.patch ];
+          patches = (old.patches or []) ++ [
+            ./patches/wifi-manager-audio-callback.patch
+            ./patches/wifi-manager-refresh-backpressure.patch
+          ];
+          nativeCheckInputs = (old.nativeCheckInputs or []) ++ [ nixpkgs.legacyPackages.x86_64-linux.dbus ];
         });
       };
       modules = [

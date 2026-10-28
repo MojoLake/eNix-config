@@ -200,6 +200,7 @@ in
     };
     Service = {
       ExecStart = "${wifiManager}/bin/wifi-manager";
+      Environment = "RUST_LOG=wifi_manager=info,wifi_manager::dbus::network_manager=debug";
       Restart = "on-failure";
       RestartSec = 3;
     };
