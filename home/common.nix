@@ -232,6 +232,7 @@ in
     ];
 
     shellAliases = {
+      copy = if pkgs.stdenv.isDarwin then "/usr/bin/pbcopy" else "${pkgs.wl-clipboard}/bin/wl-copy";
       com = "g++ -Wall -fsanitize=address";
       vi = "nvim";
       codex-d = "codex --dangerously-bypass-approvals-and-sandbox";
