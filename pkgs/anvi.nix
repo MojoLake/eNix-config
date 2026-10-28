@@ -24,8 +24,8 @@ stdenv.mkDerivation {
     src = fetchFromGitHub {
         owner = "MojoLake";
         repo = "anvi";
-        rev = "40f2b3413e0b17cff0f85d91062a7b7cc70d0c88";
-        hash = "sha256-54o1aeYkaDT8EL61fBI7LHSlmmnO6XgP6VYsDo8d4+s=";
+        rev = "241af9a74fb54fad74bf031f6afb8cc0eb17a90b";
+        hash = "sha256-tHK885PVuFq8E3/zzjWcksX4MpWD7wAsBeiY8Pi/OAY=";
     };
 
     nativeBuildInputs = [
