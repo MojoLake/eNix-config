@@ -16,6 +16,8 @@ let
 in
 {
   home.packages = with pkgs; [
+    (pkgs.callPackage ../pkgs/anvi.nix { })
+
     gcc
 
     ols
