@@ -195,6 +195,11 @@ in
     };
   };
 
+  programs.gh = {
+    enable = true;
+    settings.git_protocol = "ssh";
+  };
+
   programs.neovim = {
     enable = true;
     defaultEditor = true;
