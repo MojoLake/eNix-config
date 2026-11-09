@@ -24,6 +24,10 @@
   # Enable networking
   networking.networkmanager.enable = true;
 
+  hardware.bluetooth.enable = true;
+  hardware.bluetooth.powerOnBoot = true;
+  services.blueman.enable = true;
+
   services.automatic-timezoned.enable = true;
 
   services.geoclue2.enable = true;
@@ -98,6 +102,7 @@
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "26.05"; # Did you read the comment?
 
+  services.tailscale.enable = true;
 
   # mojolake edited stuff starts
   
