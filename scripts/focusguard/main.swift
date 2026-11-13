@@ -111,12 +111,16 @@ func main() throws {
         FocusGuard — local website blocking with deliberate exceptions
           focusguard install                 Build/install the Nix-configured policy (administrator access)
           focusguard status                  Show blocks and temporary exceptions
-          focusguard unlock youtube [20]     Educational passage + recall; duration in minutes
+          focusguard unlock youtube [20]     Interactive tutor, then a timed exception
+          focusguard learn [--offline]       Study without unblocking a site; resumes progress
+          focusguard progress                Show tutoring evidence and next topic
+          focusguard unlock-typing SITE [20] Legacy passage-typing challenge
           focusguard lock [youtube]          End one or all exceptions immediately
           focusguard uninstall               Stop service and remove managed hosts entries
         """)
         return
     }
+    if command == "capabilities" { print("tutor-v1"); return }
     guard geteuid() == 0 else { throw GuardError("Administrator access required. Use the focusguard wrapper or sudo.") }
     switch command {
     case "install":
@@ -150,7 +154,7 @@ func main() throws {
             }
         }
         print("Service loaded. Policy: \(runtime.path("policy.json"))")
-    case "unlock":
+    case "unlock", "unlock-tutored", "check-unlock":
         guard (2...3).contains(args.count) else { throw GuardError("Usage: focusguard unlock SITE [MINUTES]") }
         let policy = try runtime.policy()
         let site = args[1]
@@ -160,6 +164,15 @@ func main() throws {
         }
         // Do not grant access without a running service to expire it.
         try requireService()
+        if command == "check-unlock" {
+            try runtime.withLock {
+                let now = Date().timeIntervalSince1970
+                var state = runtime.state(now: now)
+                state.advance(now: now, elapsed: max(0, now - state.observedAt), policy: policy)
+                guard state.grants[site] == nil else { throw GuardError("Already unlocked; lock it before requesting another exception.") }
+            }
+            return
+        }
         guard isatty(STDIN_FILENO) == 1 else { throw GuardError("An interactive terminal is required.") }
         // Hold a separate lock while typing; the daemon must keep expiring grants.
         let challengeLock = open(runtime.path("challenge.lock"), O_CREAT | O_RDWR | O_NOFOLLOW, 0o600)
@@ -169,11 +182,12 @@ func main() throws {
             throw GuardError("Another unlock challenge is already open. Finish or cancel it first.")
         }
         defer { flock(challengeLock, LOCK_UN) }
-        let (passage, recall) = try runtime.withLock {
+        let selection: (Passage, Recall)? = try runtime.withLock {
             let now = Date().timeIntervalSince1970
             var state = runtime.state(now: now)
             state.advance(now: now, elapsed: max(0, now - state.observedAt), policy: policy)
             guard state.grants[site] == nil else { throw GuardError("Already unlocked; lock it before requesting another exception.") }
+            if command == "unlock-tutored" { return nil }
             var learning = try runtime.learning()
             let selection = learning.next(in: policy.passages!)
             try runtime.saveLearning(learning)
@@ -183,7 +197,7 @@ func main() throws {
         fflush(stdout)
         guard let reason = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines),
               (10...1000).contains(reason.count) else { throw GuardError("Enter a reason of 10–1000 characters.") }
-        try challenge(passage, recall: recall)
+        if let (passage, recall) = selection { try challenge(passage, recall: recall) }
         try requireService()
         try runtime.withLock {
             let currentPolicy = try runtime.policy()
@@ -195,9 +209,11 @@ func main() throws {
             try runtime.audit(site: site, reason: reason, minutes: minutes)
             try runtime.save(state)
             try runtime.apply(policy: policy, state: state)
-            var learning = try runtime.learning()
-            learning.complete(passage.id)
-            try runtime.saveLearning(learning)
+            if let (passage, _) = selection {
+                var learning = try runtime.learning()
+                learning.complete(passage.id)
+                try runtime.saveLearning(learning)
+            }
         }
         print("\(site) allowed for \(minutes) minutes. Restart the browser if it cached the block.")
     case "lock":

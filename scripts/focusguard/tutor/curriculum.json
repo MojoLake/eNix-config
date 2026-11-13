@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "title": "KV cache from first principles",
+  "sources": [
+    "https://huggingface.co/docs/transformers/cache_explanation",
+    "https://arxiv.org/abs/2305.13245",
+    "https://arxiv.org/abs/2309.06180"
+  ],
+  "lessons": [
+    {
+      "id": "reuse",
+      "title": "What can be reused?",
+      "question": "In a causal decoder at inference, we append one token to a fixed prefix. Which previous attention quantities can we reuse, and why are they unchanged? Explain from the causal dependency, not just 'we cache K and V'.",
+      "reference": "For fixed weights, positions and prefix tokens, an earlier position cannot attend to the newly appended future position. Its hidden states, and therefore its per-layer keys and values, are unchanged. The new position computes its own query, key and value; its query attends to the cached keys and values plus the new ones. Previous queries are not needed for the new position's attention output. Attention over the past still has to be computed.",
+      "rubric": ["Explains that causal masking prevents future tokens changing old positions", "Connects unchanged old hidden states to reusable per-layer K and V", "Does not claim attention over the prefix disappears"],
+      "hints": ["Can an earlier position see the newly appended token through the causal mask?", "Follow that dependency through successive layers: could any old hidden state change?"],
+      "transfer": "You edit a token halfway through a cached prefix, keeping the model and positions fixed. Which cached positions are still valid, and why?",
+      "transfer_reference": "Positions strictly before the edit remain valid under causal attention. The edited position and all later positions must generally be recomputed, because their hidden states can depend on the changed token. Merely keeping the sequence length the same does not preserve those values.",
+      "transfer_rubric": ["Preserves positions before the edit", "Invalidates the edited position and generally everything after it", "Explains causal dependence"]
+    },
+    {
+      "id": "shape",
+      "title": "Count the stored values",
+      "question": "For one sequence with T cached tokens, L layers, Hkv key/value heads per layer and head dimension D, derive how many scalar values the KV cache stores. Build it from one token in one layer and explain every factor. Assume ordinary full attention with equal K and V dimensions.",
+      "reference": "One token in one layer stores Hkv vectors of D scalars for keys and the same number for values: 2*Hkv*D scalars. T tokens and L layers give 2*L*T*Hkv*D. With B equal-length independent sequences, multiply by B. These are logical tensor elements, excluding allocator padding and metadata.",
+      "rubric": ["Derives the factor of two from keys AND values", "Includes layers, sequence length, KV heads and head dimension", "Distinguishes scalar count from bytes"],
+      "hints": ["Count the entries in the key vector for one token and one head first.", "You need both K and V, for every KV head, at every layer."],
+      "transfer": "Two independent sequences have lengths 100 and 300. With L layers, Hkv KV heads and dimension D, derive the total logical cache elements. Why might a padded rectangular allocation use more?",
+      "transfer_reference": "The logical total is 2*L*(100+300)*Hkv*D. A rectangular allocation padded to length 300 for both sequences holds 2*L*600*Hkv*D, including 200 unused token slots. A paged or otherwise compact allocation need not reserve that full rectangle.",
+      "transfer_rubric": ["Sums lengths to 400 rather than assuming both are length 300", "Correct factors for K/V, layers and dimensions", "Explains padding versus logical usage"]
+    },
+    {
+      "id": "bytes",
+      "title": "Turn shapes into a memory budget",
+      "question": "A hypothetical full-attention model has 32 layers, 8 KV heads, head dimension 128 and 2 bytes per cache scalar. For ONE sequence of 4096 tokens, derive the KV-cache size in bytes and MiB. Show the multiplication and explain the factors; 1 MiB = 2^20 bytes.",
+      "reference": "2 (K and V) * 32 layers * 4096 tokens * 8 KV heads * 128 scalars/head * 2 bytes/scalar = 536870912 bytes = 512 MiB. Per token it is 131072 bytes = 128 KiB. This excludes weights, temporary activations, metadata and allocation overhead.",
+      "rubric": ["Shows 2*32*4096*8*128*2", "Gets 536870912 bytes or 512 MiB", "Explains the two distinct factors of two"],
+      "hints": ["First calculate bytes for one token across all layers.", "One factor of two counts K and V; another is bytes per scalar."],
+      "transfer": "The same model serves three sequences of lengths 1024, 2048 and 4096. Derive their total logical KV memory in MiB, without padding. What does adding one token to EACH sequence cost?",
+      "transfer_reference": "Each token costs 128 KiB. The sum is 7168 tokens, so 7168*128 KiB = 896 MiB. Adding one token to each of three sequences adds 3*128 KiB = 384 KiB. No weights or allocator overhead are included.",
+      "transfer_rubric": ["Uses sum of lengths 7168", "Gets 896 MiB", "Gets 384 KiB for three new tokens and explains why"]
+    },
+    {
+      "id": "gqa",
+      "title": "Query heads versus KV heads",
+      "question": "A hypothetical model changes from 32 query heads and 32 KV heads to 32 query heads and 8 KV heads. Head dimensions, layers, sequence lengths and cache dtype stay fixed. Predict the cache-size ratio and explain what is shared and what remains distinct.",
+      "reference": "The cache stores keys and values, so its size scales with KV heads, not query heads. Eight instead of 32 KV heads means one quarter the logical cache. In grouped-query attention, groups of query heads use the same K/V head, while their queries remain distinct. Changing a trained model's attention structure is not a free runtime switch and may require training or adaptation.",
+      "rubric": ["Derives 8/32 = one quarter", "Explains shared K/V with distinct queries", "Does not count all 32 query heads in cached K/V"],
+      "hints": ["Which head count describes the tensors actually being stored?", "Each set of query heads can read a shared K/V head."],
+      "transfer": "A model with 32 query heads and 8 KV heads uses 2-byte cache scalars. An alternative uses 1 KV head and 1-byte scalars, with all other dimensions fixed. Derive the logical cache-size ratio. Name one reason that ratio is not a guaranteed end-to-end speedup.",
+      "transfer_reference": "The ratio is (1/8)*(1/2) = 1/16 of the original cache bytes. Throughput also depends on weight traffic, compute, kernel efficiency and other overheads; quantization can add scale metadata or conversion cost, and changing KV-head structure can affect model quality.",
+      "transfer_rubric": ["Combines head-count and scalar-size factors to 1/16", "Names a concrete other bottleneck or overhead", "Does not promise a 16x end-to-end speedup"]
+    },
+    {
+      "id": "bandwidth",
+      "title": "What caching does not remove",
+      "question": "Why can generating the next token slow down as context grows even with a KV cache? Trace what a new query does with the cached keys and values. Assume ordinary dense full attention; distinguish recomputation avoided from work that remains.",
+      "reference": "Caching avoids recomputing old positions' keys and values. A new query still scores the cached keys, normalizes the scores, and combines the values. With full attention the amount of KV data and attention work per new token grows with context length. Actual latency also depends on weight reads, compute, caching and kernel efficiency; avoiding old K/V projections does not make attention constant-cost.",
+      "rubric": ["Separates old K/V projections from new-query attention", "Mentions both scoring keys and combining values", "Explains growth with context rather than constant cost"],
+      "hints": ["Does having keys in memory already give you their dot products with a NEW query?", "After attention scores, which stored vectors must be combined?"],
+      "transfer": "A simplified decode attention step reads 512 MiB of KV data once from HBM. Assume effective bandwidth of exactly 1 TiB/s, no overlap and no other costs. Derive the bandwidth-only time in milliseconds. What changes if context doubles?",
+      "transfer_reference": "512 MiB / (1 TiB/s) = 512/1048576 seconds = 0.48828125 ms. Doubling context doubles this modeled traffic and time to 0.9765625 ms. This is an idealized bandwidth component, not a prediction of total decode latency.",
+      "transfer_rubric": ["Uses bytes divided by bytes/second with consistent binary units", "Gets approximately 0.488 ms and 0.977 ms", "Distinguishes the model from end-to-end latency"]
+    },
+    {
+      "id": "capacity",
+      "title": "Admission and growing sequences",
+      "question": "You have 4 GiB available exclusively for KV cache after all other reservations. Each sequence has 4096 tokens, and each token costs 128 KiB. Ignoring allocator overhead, derive how many sequences fit. Why is admitting exactly that many risky if they keep generating?",
+      "reference": "Each sequence uses 4096*128 KiB = 512 MiB. 4 GiB / 512 MiB = 8 sequences. That fills the budget at the current lengths, leaving no space for new tokens. A serving policy needs growth headroom or a mechanism such as admission limits, preemption or offloading; the relevant budget is what remains after weights and other allocations.",
+      "rubric": ["Derives 512 MiB per sequence and eight sequences", "Accounts for cache growth during generation", "Uses available KV budget rather than total device memory"],
+      "hints": ["Compute bytes for one sequence before dividing the budget.", "Are sequence lengths fixed once decode starts?"],
+      "transfer": "Under the same 4 GiB budget, require capacity for each admitted sequence to grow from 4096 to 6144 tokens. With the same 128 KiB/token and no overhead, how many sequences can you guarantee room for? Show the rounding decision.",
+      "transfer_reference": "6144*128 KiB = 768 MiB per sequence. floor(4096 MiB / 768 MiB) = 5. Six would require 4608 MiB. This reserves space for the stated length bound, not unlimited generation.",
+      "transfer_rubric": ["Calculates 768 MiB per sequence", "Rounds DOWN to five", "Explains that six exceeds the budget"]
+    },
+    {
+      "id": "offload",
+      "title": "Moving cache has a cost",
+      "question": "An inactive request has 512 MiB of KV cache in host memory. It must all return to the GPU before decode resumes. At a hypothetical effective transfer bandwidth of 32 GiB/s, derive the minimum transfer time, ignoring all other costs. What resource does offloading save, and what does it spend?",
+      "reference": "512 MiB = 0.5 GiB, so 0.5/32 seconds = 15.625 ms. Offloading frees GPU memory while spending host memory, transfer bandwidth and time. Effective end-to-end cost can include contention, synchronization and data layout. Overlap helps only when there is independent work and resources to hide the transfer behind.",
+      "rubric": ["Derives approximately 15.625 ms using consistent units", "Identifies GPU capacity saved", "Identifies transfer time/bandwidth cost without assuming perfect overlap"],
+      "hints": ["Convert 512 MiB into GiB first.", "Transfer time is bytes divided by effective bytes per second."],
+      "transfer": "Two such 512 MiB caches must return through ONE shared 32 GiB/s link. Both requests must be ready. What is the ideal minimum time for all data to arrive? Why doesn't starting both copies simultaneously halve it?",
+      "transfer_reference": "The total is 1 GiB, requiring at least 1/32 seconds = 31.25 ms on the shared link. Concurrent copies share bandwidth; concurrency does not double the link's capacity. Individual completion times depend on scheduling, but all data cannot finish sooner under these assumptions.",
+      "transfer_rubric": ["Sums to 1 GiB and derives 31.25 ms", "Explains shared aggregate bandwidth", "Does not assume each copy independently gets full link bandwidth"]
+    },
+    {
+      "id": "debug",
+      "title": "Reason about a cached decoder",
+      "question": "You compare a deterministic causal decoder run on the full prefix with a cached version processing one new token at a time. Their last-position logits disagree. Name two concrete cache-related bugs and describe a small test that would distinguish them. No need to write the implementation here.",
+      "reference": "Possible bugs include wrong absolute positions or rotary positions, a wrong causal mask for the cache length, appending on the wrong axis, reusing another layer's cache, or stale cache after a prefix edit. A useful test uses a tiny fixed model and prefix, compares cached versus full-prefix logits at every step within numerical tolerance, and varies prefix length or clears the cache to isolate the issue. Equivalent outputs need not be bitwise equal across kernels.",
+      "rubric": ["Names two concrete cache or position/mask bugs", "Proposes a controlled comparison rather than just trying random fixes", "Uses deterministic conditions and appropriate numerical tolerance"],
+      "hints": ["Which position index should the newly appended token have?", "Compare one-token updates against a full-prefix forward pass at each step."],
+      "transfer": "Cached decoding agrees with full-prefix decoding for the first request, but fails for a second unrelated request with the same length. Suggest a likely cause and a controlled experiment. What would disprove your hypothesis?",
+      "transfer_reference": "Stale cache or incorrect request/block ownership is plausible. Run the second request alone from a cleared cache, then after the first, holding weights and tokens fixed. If clearing state removes only the sequential-run failure, that supports leakage. If it still fails in isolation, stale cross-request state is not sufficient to explain it; inspect other causes. Equal lengths do not make different prefixes interchangeable.",
+      "transfer_rubric": ["Suggests stale state or ownership leakage", "Compares isolated cleared-cache versus sequential execution", "States an observation that would disprove the hypothesis"]
+    }
+  ]
+}

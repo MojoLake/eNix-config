@@ -2,16 +2,33 @@
 
 A small native macOS website blocker. Policy lives in `home/focusguard.nix`;
 the installed root service maintains `/etc/hosts`. No Rosetta, account, cloud,
-browser extension, or subscription is needed. The interface is a terminal command.
+browser extension, or subscription is needed for blocking or offline learning.
+Online tutoring uses your signed-in Codex CLI account and its usage allowance.
+The interface is a terminal command.
 
 ## Current policy
 
 - YouTube, LinkedIn, and X (including the configured mobile/alternate hostnames).
-- Unblocking one service requires a reason and typing one educational passage
-  (roughly 250 words), followed by an ungraded recall question.
-- Thirty offline passages cover six topics: KV cache, cache offloading, GPU
+- Unblocking one service requires a completed interactive tutoring session and a
+  reason. Sessions usually take 5–10 minutes, with 2–3 problems and at most two
+  evaluated attempts per problem. There is no perfect-score requirement or timer
+  that forces you to wait.
+- Eight connected lessons cover KV-cache reuse, shapes, byte counts, GQA,
+  bandwidth, capacity, offloading and debugging. Each session includes a new
+  application problem; later lessons also probe the preceding topic.
+- Online feedback evaluates your reasoning before giving a small hint. After two
+  unsuccessful attempts, a reference explanation and your own reflection finish
+  the problem. An independent application answer advances the curriculum.
+- Progress and unfinished sessions persist across runs. Assisted answers and
+  offline self-checks never count as independent evidence. Curriculum progress is
+  provisional exercise evidence, not a claim of perfect understanding.
+- Offline mode asks you to attempt the same problems before showing references
+  for self-check. Network, authentication, timeout or invalid-response errors fall
+  back to this mode without losing the answer. Offline sessions do not advance
+  the curriculum automatically.
+- The legacy typing challenge remains available. Thirty passages cover KV cache, cache offloading, GPU
   performance, scheduling, parallelism and networks, and measurement and operations.
-- Passages are shuffled without repeats until the set is complete. Each passage
+- Legacy passages are shuffled without repeats until the set is complete. Each passage
   has two recall questions, alternating on later visits.
 - Default exception: 20 minutes; maximum: 30 minutes.
 - Other services remain blocked during the exception.
@@ -54,12 +71,54 @@ An activation failure attempts to restore the previous files and service.
 focusguard unlock youtube       # defaults to 20 minutes
 focusguard unlock linkedin 10
 focusguard unlock x 5
+focusguard unlock youtube --offline
+focusguard learn                # tutoring without any website exception
+focusguard learn --offline      # question-first self-check, no model calls
+focusguard progress             # next topic, evidence counts, transcript location
+focusguard unlock-typing youtube # legacy passage challenge
 focusguard status
 focusguard lock youtube         # end one exception early
 focusguard lock                 # end all exceptions
 ```
 
-These commands use administrator authentication. The passage appears one paragraph
+`learn` and `progress` do not use administrator authentication. `unlock` checks the
+installed blocker and requested exception first, runs the tutor as your normal
+user, then asks for your reason and grants the exception using administrator
+authentication. The exception timer starts only after study and the reason are
+finished. Ctrl-C or `/quit` saves the current session and grants no new exception.
+Run the same command to resume (a `learn` session can also resume during `unlock`).
+Use `/hint` after an attempt, `/explain` for the reference after an attempt, or
+`/offline` to switch to self-check. Normal terminal line editing is supported.
+
+Online assessment runs `codex exec` with a JSON output schema, an ephemeral
+temporary working directory, read-only sandbox and disabled shell, browser,
+apps, plugins, hooks and multi-agent features. User Codex configuration and
+project instructions are excluded. Each call times out after 45 seconds and its
+process group is terminated. Model text is validated and control characters are
+removed before display. The model never controls site names, durations, commands
+or curriculum advancement directly.
+
+The evaluator receives the current exercise/reference/rubric, answers to that
+exercise, the two most recent session summaries and bounded excerpts from
+`~/learning/learner/profile.md` and the relevant mastery rows. It does not receive
+the browsing reason or arbitrary notes. Full transcripts and state are saved in
+`~/Library/Application Support/FocusGuardTutor/` (directory mode 0700, JSON files
+0600). This creates a local record of your answers; the online excerpts are also
+sent through your Codex account. `--offline` makes no model calls.
+
+`~/learning/learner/mastery.md` remains the source of truth; this prototype does
+not edit it or invent implementation/application mastery from a chat answer.
+Session JSON provides evidence for a future learning-session review. Anki remains
+the only spaced-review scheduler; the prerequisite probe is curriculum continuity.
+After the eight lessons, the curriculum cycles for further practice.
+
+To try the tutor directly from the checkout before installing the updated wrapper:
+
+```sh
+python3 ~/eNix-config/scripts/focusguard/tutor/tutor.py learn
+```
+
+The following typing controls apply only to `unlock-typing`. The passage appears one paragraph
 at a time, with a prompt to type one short line and press Enter. Paragraph,
 line, and word progress are shown. Left/Right move the cursor; Backspace removes
 the preceding character and forward Delete removes the character at the cursor.
@@ -95,13 +154,18 @@ links. The initial set was written around the learning notes on cache offloading
 inference performance, and serving metrics. Numerical examples state their
 assumptions rather than claiming live production capacities.
 
-Generation happens ahead of time: unlocking needs no network, API key, or model.
+Generation happens ahead of time: legacy typing needs no network, API key, or model.
 To refresh the collection, edit this JSON, validate it with the tests below, rebuild
 Home Manager, and reinstall. The policy embeds the collection so the privileged
 service does not depend on writable files in your home directory. Passages must
 have 200–300 words, 3–6 paragraphs, at least two recall questions, and source links.
 Changing the set of IDs starts a new shuffle; keeping IDs retains visit counts.
 This rotation is only for unlock variety, not a replacement for Anki scheduling.
+
+The tutoring curriculum is separate: `scripts/focusguard/tutor/curriculum.json`.
+Its reference answers include explicit assumptions and units. Numerical fixtures
+are checked in the tutor tests. `tutor.py` owns the bounded learning flow, storage,
+Codex connection and offline fallback.
 
 ## What runs
 
@@ -133,6 +197,10 @@ Restart your browser when checking block/unblock behavior. This version has no
 menu-bar UI or browser integration.
 
 Administrator access can disable the service, change policy, or uninstall it.
+The internal `unlock-tutored` administrator command trusts the local wrapper's
+completion decision. This is a personal focus aid, not a tamper-proof exam: an
+administrator can invoke that command directly just as they can uninstall the
+blocker. No model or unprivileged process can modify `/etc/hosts` itself.
 Reinstalling a different policy is also an administrative bypass. The service
 makes casual hosts edits ineffective; it does not remove control of your Mac.
 Deleting/damaging the managed-block markers makes the service report an error
@@ -183,3 +251,7 @@ passage, narrow-terminal wrapping, and terminal restoration. A production binary
 for native architecture.
 Privileged launchd installation and browser behavior require a separate live check
 after installation; automated tests do not claim to cover them.
+Tutor tests additionally cover progression, independent versus hinted answers,
+bounded retries, offline and malformed-response fallback, interrupted evaluation
+and resumption, concurrent sessions, corruption preservation, numeric examples,
+and rejecting invalid sites/durations or an old installation before starting study.

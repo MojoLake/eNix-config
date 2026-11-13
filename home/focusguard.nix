@@ -23,6 +23,15 @@ in
     if [ "''${1:-}" = install ]; then
       exec /bin/bash ${source}/install.sh ${source} ${policy}
     fi
+    case "''${1:-}" in
+      learn|progress|unlock)
+        exec ${pkgs.python3}/bin/python3 ${source}/tutor/tutor.py "$@"
+        ;;
+      unlock-typing)
+        shift
+        exec /usr/bin/sudo '/Library/Application Support/FocusGuard/focusguard' unlock "$@"
+        ;;
+    esac
     if [ ! -x '/Library/Application Support/FocusGuard/focusguard' ]; then
       echo 'FocusGuard is not installed. Run: focusguard install' >&2
       exit 1
