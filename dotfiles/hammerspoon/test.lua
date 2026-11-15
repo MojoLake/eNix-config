@@ -17,7 +17,8 @@ local fakeHS = {
         end,
     },
 }
-local env = setmetatable({ hs = fakeHS, require = function() return {} end }, { __index = _G })
+local env = setmetatable({ hs = fakeHS, require = function() return {} end,
+    dofile = function() return {} end }, { __index = _G })
 assert(loadfile(source, "t", env))()
 
 local alt, cmd, shift, ctrl, caps = 0x80000, 0x100000, 0x20000, 0x40000, 0x10000

@@ -75,3 +75,6 @@ end):start()
 
 -- Local CLI is useful for checking that the configuration loaded successfully.
 require("hs.ipc")
+
+-- Restore the callback for Buddy notifications after Hammerspoon restarts.
+buddyNotifications = dofile(os.getenv("HOME") .. "/eNix-config/scripts/buddy/notify.lua")
