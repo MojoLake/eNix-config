@@ -114,6 +114,8 @@ in
 
     kubectl
     k9s
+    k3d
+    kubernetes-helm
 
     ankiDesktop
     ankiCard
