@@ -1,0 +1,5 @@
+#!/bin/sh
+# Keep this small personal utility tied to its eNix-config checkout.
+set -eu
+export PATH="$HOME/.local/bin:$HOME/.nix-profile/bin:/usr/bin:/bin:$PATH"
+exec "$HOME/.nix-profile/bin/python3" "$HOME/eNix-config/scripts/buddy/buddy.py" "$@"

@@ -23,7 +23,7 @@ let
   };
 in
 {
-  imports = [ ./focusguard.nix ];
+  imports = [ ./focusguard.nix ./buddy.nix ];
 
   # Enable flakes for this user without touching the system nix.conf.
   xdg.configFile."nix/nix.conf".text = ''
