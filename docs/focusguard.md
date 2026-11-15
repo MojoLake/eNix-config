@@ -10,15 +10,22 @@ The interface is a terminal command.
 
 - YouTube, LinkedIn, and X (including the configured mobile/alternate hostnames).
 - Unblocking one service requires a completed interactive tutoring session and a
-  reason. Sessions usually take 5–10 minutes, with 2–3 problems and at most two
+  reason. Sessions usually take 5–10 minutes, with 1–3 problems and at most two
   evaluated attempts per problem. There is no perfect-score requirement or timer
   that forces you to wait.
 - Eight connected lessons cover KV-cache reuse, shapes, byte counts, GQA,
   bandwidth, capacity, offloading and debugging. Each session includes a new
-  application problem; later lessons also probe the preceding topic.
+  application problem. A preceding-topic probe is included only when its latest
+  explanation was not independent. Retrying a lesson skips its explanation if
+  you already answered that explanation independently, focusing on the remaining gap.
+  Queued redundant questions in older saved sessions are skipped on resume;
+  attempted questions and all previous evidence are retained.
 - Online feedback evaluates your reasoning before giving a small hint. After two
   unsuccessful attempts, a reference explanation and your own reflection finish
   the problem. An independent application answer advances the curriculum.
+  Feedback also answers questions embedded in your response and can refer to
+  reasoning you gave earlier in the session. Requested explanations are answered
+  directly; they do not retroactively earn independent-answer credit.
 - Progress and unfinished sessions persist across runs. Assisted answers and
   offline self-checks never count as independent evidence. Curriculum progress is
   provisional exercise evidence, not a claim of perfect understanding.
@@ -99,7 +106,8 @@ removed before display. The model never controls site names, durations, commands
 or curriculum advancement directly.
 
 The evaluator receives the current exercise/reference/rubric, answers to that
-exercise, the two most recent session summaries and bounded excerpts from
+exercise, bounded earlier learner answers in the same session, the two most
+recent session summaries and bounded excerpts from
 `~/learning/learner/profile.md` and the relevant mastery rows. It does not receive
 the browsing reason or arbitrary notes. Full transcripts and state are saved in
 `~/Library/Application Support/FocusGuardTutor/` (directory mode 0700, JSON files

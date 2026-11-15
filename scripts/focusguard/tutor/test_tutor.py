@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 import tempfile
@@ -18,7 +19,7 @@ class FakeEvaluator:
         self.offline = False
         self.calls = 0
 
-    def assess(self, exercise, recent):
+    def assess(self, exercise, recent, prior_answers=None):
         self.calls += 1
         if self.offline:
             return None
@@ -45,7 +46,7 @@ class TutorTests(unittest.TestCase):
         tutor.run_task(task, self.state, self.store, evaluator, lambda: next(answers), output.append)
         return output, evaluator
 
-    def test_independent_transfer_advances_and_next_session_probes_previous(self):
+    def test_independent_transfer_advances_without_repeating_known_question(self):
         for task in self.state["active"]["tasks"]:
             self.run_task(task, ["A fully reasoned answer"], [assessment("correct")])
         completed, log = tutor.finish(self.state, self.store)
@@ -55,7 +56,8 @@ class TutorTests(unittest.TestCase):
         self.assertEqual(state["cursor"], 1)
         self.assertIsNone(state["active"])
         next_session = tutor.new_session(state, self.curriculum)
-        self.assertEqual(next_session["tasks"][0]["concept"], "reuse")
+        self.assertEqual(next_session["tasks"][0]["concept"], "shape")
+        self.assertEqual([t["kind"] for t in next_session["tasks"]], ["main", "transfer"])
         self.assertEqual(next_session["lesson"], "shape")
 
     def test_hint_then_correct_is_not_independent(self):
@@ -65,6 +67,76 @@ class TutorTests(unittest.TestCase):
         self.assertTrue(task["done"])
         self.assertTrue(task["assisted"])
         self.assertFalse(task["independent"])
+
+    def test_retry_practices_transfer_without_reasking_correct_explanation(self):
+        main, transfer = self.state["active"]["tasks"]
+        self.run_task(main, ["reasoned answer"], [assessment("correct")])
+        self.run_task(transfer, ["attempt", "reflection"], [None])
+        tutor.finish(self.state, self.store)
+        self.assertEqual(self.state["cursor"], 0)
+        retry = tutor.new_session(self.state, self.curriculum)
+        self.assertEqual([t["kind"] for t in retry["tasks"]], ["transfer"])
+        self.assertEqual(retry["skipped_tasks"][0]["kind"], "main")
+        self.state["active"] = retry
+        self.run_task(retry["tasks"][0], ["correct transfer"], [assessment("correct")])
+        tutor.finish(self.state, self.store)
+        next_session = tutor.new_session(self.state, self.curriculum)
+        self.assertEqual([t["concept"] for t in next_session["tasks"]], ["shape", "shape"])
+
+    def test_weak_prerequisite_still_gets_a_probe(self):
+        main, transfer = self.state["active"]["tasks"]
+        self.run_task(main, ["attempt", "reflection"], [None])
+        self.run_task(transfer, ["correct application"], [assessment("correct")])
+        tutor.finish(self.state, self.store)
+        next_session = tutor.new_session(self.state, self.curriculum)
+        self.assertEqual(next_session["tasks"][0]["kind"], "recall")
+        self.assertEqual(next_session["tasks"][0]["concept"], "reuse")
+
+    def test_old_queued_recall_is_removed_without_touching_evidence(self):
+        for task in self.state["active"]["tasks"]:
+            self.run_task(task, ["correct answer"], [assessment("correct")])
+        tutor.finish(self.state, self.store)
+        # Simulate the persisted task list created by the old version.
+        self.state["active"] = tutor.new_session(self.state, self.curriculum)
+        self.state["active"]["tasks"].insert(0, tutor.task(self.curriculum["lessons"][0], "recall"))
+        evidence = copy.deepcopy((self.state["concepts"], self.state["recent"]))
+        self.assertTrue(tutor.skip_redundant_questions(self.state, self.state["active"]))
+        self.assertFalse(tutor.skip_redundant_questions(self.state, self.state["active"]))
+        self.assertEqual((self.state["concepts"], self.state["recent"]), evidence)
+        self.assertEqual(self.state["active"]["tasks"][0]["concept"], "shape")
+        self.store.save(self.state)
+        self.assertEqual(self.store.load()["active"]["tasks"][0]["concept"], "shape")
+
+    def test_migration_keeps_pending_attempts_and_latest_failed_evidence(self):
+        exercise = tutor.task(self.curriculum["lessons"][0], "recall")
+        self.state["recent"] = [{"lesson": "reuse", "advanced": True,
+                                 "evidence": [{"concept": "reuse", "kind": "main", "independent": True}]}]
+        session = {"lesson": "shape", "tasks": [exercise]}
+        exercise["attempts"] = [{"answer": "saved attempt", "assessment": "pending"}]
+        self.assertFalse(tutor.skip_redundant_questions(self.state, session))
+        exercise["attempts"] = []
+        self.state["recent"].append({"lesson": "shape", "advanced": False,
+                                     "evidence": [{"concept": "reuse", "kind": "recall", "independent": False}]})
+        self.assertFalse(tutor.skip_redundant_questions(self.state, session))
+
+    def test_evaluator_receives_prior_reasoning_without_reference_answers(self):
+        main, transfer = self.state["active"]["tasks"]
+        self.run_task(main, ["My causal explanation. Why not cache queries?"], [assessment("correct")])
+        captured = []
+        class Capture(FakeEvaluator):
+            def assess(self, exercise, recent, prior_answers=None):
+                captured.extend(prior_answers)
+                return assessment("correct")
+        tutor.run_task(transfer, self.state, self.store, Capture([]), lambda: "As above, causality.", lambda _: None)
+        self.assertEqual(captured[0]["answers"], ["My causal explanation. Why not cache queries?"])
+        self.assertNotIn("reference", captured[0])
+        self.assertNotIn(transfer["question"], str(captured))
+
+    def test_prior_answer_context_is_bounded(self):
+        main, transfer = self.state["active"]["tasks"]
+        main["attempts"] = [{"answer": "a" * 6000} for _ in range(5)]
+        context = tutor.earlier_answers(self.state["active"], transfer)
+        self.assertEqual(sum(len(a) for t in context for a in t["answers"]), 16000)
 
     def test_two_failed_attempts_reveal_and_reflect_with_bounded_calls(self):
         task = self.state["active"]["tasks"][0]
@@ -94,7 +166,7 @@ class TutorTests(unittest.TestCase):
     def test_cancel_during_evaluation_resumes_pending_answer(self):
         task = self.state["active"]["tasks"][0]
         class Interrupted(FakeEvaluator):
-            def assess(self, exercise, recent):
+            def assess(self, exercise, recent, prior_answers=None):
                 raise KeyboardInterrupt
         with self.assertRaises(KeyboardInterrupt):
             tutor.run_task(task, self.state, self.store, Interrupted([]), lambda: "saved answer", lambda _: None)
