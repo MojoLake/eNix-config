@@ -24,6 +24,15 @@
   # Enable networking
   networking.networkmanager.enable = true;
 
+  # Printing and discovery of printers on the local network.
+  services.printing.enable = true;
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    openFirewall = true;
+  };
+  programs.system-config-printer.enable = true;
+
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
   services.blueman.enable = true;
