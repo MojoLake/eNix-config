@@ -1,16 +1,16 @@
 """Native completion banners; session contents never become executable code."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+import tempfile
 
 
 HOME = Path.home()
-APPLESCRIPT = '''on run argv
-    display notification (item 2 of argv) with title (item 1 of argv)
-end run'''
+HERE = Path(__file__).resolve().parent
 
 
 def codex_title(thread_id):
@@ -69,7 +69,7 @@ def forward_codex(raw):
         subprocess.run([*command, raw], timeout=5, check=False, stdout=subprocess.DEVNULL)
 
 
-def label(agent, event):
+def session_title(agent, event):
     title = None
     if agent == "codex":
         title = codex_title(event.get("thread-id"))
@@ -77,24 +77,88 @@ def label(agent, event):
         title = claude_title(event)
     elif agent == "pi":
         title = event.get("title")
-    title = title or Path(event.get("cwd") or str(HOME)).name
+    return title
+
+
+def label(agent, event):
+    title = session_title(agent, event) or Path(event.get("cwd") or str(HOME)).name
     title = " ".join(str(title).split())[:160]
     return f"{ {'codex': 'Codex', 'claude': 'Claude Code', 'pi': 'Pi'}[agent]} · {title}"
 
 
+def terminal_context():
+    """Find the actual terminal ancestor, not an inherited TERM_PROGRAM value."""
+    result = subprocess.run(["/bin/ps", "-axo", "pid=,ppid=,comm="],
+                            capture_output=True, text=True, timeout=2, check=True)
+    processes = {}
+    for line in result.stdout.splitlines():
+        fields = line.strip().split(None, 2)
+        if len(fields) == 3:
+            processes[int(fields[0])] = (int(fields[1]), fields[2])
+    bundles = {"ghostty": "com.mitchellh.ghostty", "Terminal": "com.apple.Terminal",
+               "iTerm2": "com.googlecode.iterm2"}
+    pid = os.getppid()
+    for _ in range(40):
+        if pid not in processes:
+            break
+        parent, command = processes[pid]
+        bundle = bundles.get(Path(command).name)
+        if bundle:
+            return {"bundle": bundle, "pid": pid}
+        if parent == pid:
+            break
+        pid = parent
+    return None
+
+
+def payload(agent, event):
+    session = event.get("thread-id") or event.get("session_id") or event.get("cwd") or "manual"
+    return {
+        "id": hashlib.sha256(f"{agent}:{session}".encode()).hexdigest()[:32],
+        "agent": agent,
+        "title": label(agent, event),
+        "sessionTitle": session_title(agent, event),
+        "threadID": event.get("thread-id") if agent == "codex" else None,
+        "terminal": terminal_context(),
+    }
+
+
+def lua_string(value):
+    return '"' + "".join(f"\\{byte:03d}" for byte in str(value).encode()) + '"'
+
+
+def send_to_hammerspoon(data, capture=False):
+    hs = HOME / "Applications/Home Manager Apps/Hammerspoon.app/Contents/Frameworks/hs/hs"
+    directory = HOME / ".local/state/agent-notify"
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", dir=directory) as stream:
+        json.dump(data, stream)
+        stream.flush()
+        # All variable text travels in a private JSON file, never as Lua code.
+        method = "capture" if capture else "send"
+        code = ("if not agentNotifications then agentNotifications=dofile("
+                + lua_string(HERE / "notifications.lua")
+                + "); agentNotifications.bind() end; agentNotifications."
+                + method + "(" + lua_string(stream.name) + "); print('AGENT_NOTIFY_OK')")
+        result = subprocess.run([str(hs), "-c", code], capture_output=True, text=True, timeout=3)
+        if result.returncode or "AGENT_NOTIFY_OK" not in result.stdout:
+            raise RuntimeError("Hammerspoon notification bridge unavailable: " + result.stderr.strip())
+
+
 def main():
-    agent = sys.argv[1]
-    raw = sys.stdin.read() if agent == "claude" else sys.argv[2]
-    if agent == "codex":
+    capture = sys.argv[1] == "capture"
+    args = sys.argv[2:] if capture else sys.argv[1:]
+    agent = args[0]
+    raw = sys.stdin.read() if agent == "claude" else args[1]
+    if agent == "codex" and not capture:
         try:
             forward_codex(raw)
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             print(f"agent-notify: existing Codex callback: {error}", file=sys.stderr)
     event = json.loads(raw)
-    if agent == "codex" and event.get("type") != "agent-turn-complete":
+    if agent == "codex" and not capture and event.get("type") != "agent-turn-complete":
         return
-    subprocess.run(["/usr/bin/osascript", "-e", APPLESCRIPT, label(agent, event), "Finished responding"],
-                   timeout=3, check=True, stdout=subprocess.DEVNULL)
+    send_to_hammerspoon(payload(agent, event), capture=capture)
 
 
 if __name__ == "__main__":

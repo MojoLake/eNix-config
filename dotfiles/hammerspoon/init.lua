@@ -78,3 +78,7 @@ require("hs.ipc")
 
 -- Restore the callback for Buddy notifications after Hammerspoon restarts.
 buddyNotifications = dofile(os.getenv("HOME") .. "/eNix-config/scripts/buddy/notify.lua")
+
+-- Match Linux's Mod+N / Mod+Shift+N for the agent notification queue.
+agentNotifications = dofile(os.getenv("HOME") .. "/eNix-config/scripts/agent-notify/notifications.lua")
+agentNotifications.bind()

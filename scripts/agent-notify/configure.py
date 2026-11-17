@@ -53,11 +53,12 @@ def configure(home, command, settings):
     merge(codex, settings)
     codex["notify"] = notification_command
 
-    stop = claude.setdefault("hooks", {}).setdefault("Stop", [])
-    hook_command = shlex.quote(command) + " claude"
-    if not any(hook.get("command") == hook_command
-               for group in stop for hook in group.get("hooks", [])):
-        stop.append({"hooks": [{"type": "command", "command": hook_command, "timeout": 10}]})
+    for event, arguments in [("Stop", " claude"), ("UserPromptSubmit", " capture claude")]:
+        groups = claude.setdefault("hooks", {}).setdefault(event, [])
+        hook_command = shlex.quote(command) + arguments
+        if not any(hook.get("command") == hook_command
+                   for group in groups for hook in group.get("hooks", [])):
+            groups.append({"hooks": [{"type": "command", "command": hook_command, "timeout": 10}]})
     write(codex_path, tomlkit.dumps(codex))
     write(claude_path, json.dumps(claude, indent=2) + "\n")
 
