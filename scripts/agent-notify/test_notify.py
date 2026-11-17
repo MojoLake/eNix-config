@@ -25,6 +25,27 @@ notify = load("notify")
 
 
 class NotificationsTest(unittest.TestCase):
+    def test_desktop_wrapper_cannot_forward_back_to_our_hook(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            (home / ".codex").mkdir()
+            command = str(home / ".local/bin/agent-notify")
+            own = [command, "codex"]
+            desktop = ["/Applications/Computer Use/SkyComputerUseClient", "turn-ended"]
+            wrapped = desktop + ["--previous-notify", json.dumps(own)]
+            codex = home / ".codex/config.toml"
+            codex.write_text(tomlkit.dumps({"notify": wrapped}))
+            configure.configure(home, command, {})
+            saved = home / ".local/state/agent-notify/codex-notify.json"
+            self.assertEqual(json.loads(saved.read_text()), desktop)
+            self.assertEqual(tomlkit.parse(codex.read_text())["notify"], own)
+            # An already-saved cycle must be repaired on the next activation.
+            saved.write_text(json.dumps(wrapped))
+            configure.configure(home, command, {})
+            self.assertEqual(json.loads(saved.read_text()), desktop)
+            unrelated = desktop + ["--previous-notify", json.dumps(["/other/hook"])]
+            self.assertEqual(configure.without_self_callback(unrelated, own), unrelated)
+
     def test_merge_preserves_settings_callback_comments_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary)

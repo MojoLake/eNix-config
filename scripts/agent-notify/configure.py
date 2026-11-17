@@ -38,6 +38,22 @@ def merge(target, source):
             target[key] = value
 
 
+def without_self_callback(arguments, notification_command):
+    """Keep the desktop callback without forwarding back into our own hook."""
+    arguments = list(arguments)
+    if (len(arguments) >= 2 and Path(arguments[0]).name == "SkyComputerUseClient"
+            and arguments[1] == "turn-ended" and "--previous-notify" in arguments):
+        index = arguments.index("--previous-notify")
+        if index + 1 < len(arguments):
+            try:
+                nested = json.loads(arguments[index + 1])
+            except ValueError:
+                return arguments
+            if nested == notification_command:
+                del arguments[index:index + 2]
+    return arguments
+
+
 def configure(home, command, settings):
     codex_path = home / ".codex/config.toml"
     codex = tomlkit.parse(codex_path.read_text()) if codex_path.exists() else tomlkit.document()
@@ -45,11 +61,16 @@ def configure(home, command, settings):
     claude = json.loads(claude_path.read_text()) if claude_path.exists() else {}
     notification_command = [command, "codex"]
     previous = codex.get("notify")
+    saved_callback = home / ".local/state/agent-notify/codex-notify.json"
     # Save the existing desktop computer-use callback before replacing it.
     if previous and list(previous) != notification_command:
         if not isinstance(previous, list) or not all(isinstance(arg, str) for arg in previous):
             raise ValueError("Codex notify must be an array of command arguments")
-        write(home / ".local/state/agent-notify/codex-notify.json", json.dumps(list(previous)) + "\n")
+        write(saved_callback, json.dumps(without_self_callback(previous, notification_command)) + "\n")
+    elif saved_callback.exists():
+        # Repair callbacks saved by an older activation, too.
+        saved = json.loads(saved_callback.read_text())
+        write(saved_callback, json.dumps(without_self_callback(saved, notification_command)) + "\n")
     merge(codex, settings)
     codex["notify"] = notification_command
 
