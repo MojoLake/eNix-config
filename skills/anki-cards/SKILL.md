@@ -25,6 +25,27 @@ Show cloze syntax or front/back pairs. Language labels indicate answer language.
 - When suggesting cards, run `schema` and propose a specific existing deck for
   each card instead of asking which deck to use.
 
+## Blind prompt check before suggestions
+
+Before suggesting new or materially revised cards, test their question sides
+with independent subagents using fresh context (`fork_turns: "none"`). Give them
+only what Elias would see while reviewing, without the answer key, Back Extra,
+lesson transcript, or intended conclusions. For clozes, render each distinct
+cloze number separately: hide all deletions with that number, preserve any hints,
+and leave the other clozes visible. Test reverse-card fronts too when applicable.
+
+Ask agents to answer and flag missing context, misleading premises, or materially
+different valid answers. Compare their answers with the intended concept; accept
+synonyms. Revise ambiguous prompts and retest the changed fronts before suggesting
+them. Avoid batches where another question reveals a card's answer.
+
+Failure to answer is a diagnostic, not proof of ambiguity: distinguish missing
+knowledge (especially private project facts) from missing cues in the prompt.
+Correct answers also do not prove a card is clear or useful. Review the cards
+yourself and briefly report meaningful findings without claiming untested cards
+passed. If subagents are unavailable, disclose that the check was not performed.
+This check does not authorize adding cards or syncing the collection.
+
 ## Formulation examples
 
 These examples come from Elias's existing collection and reflect card shapes he
