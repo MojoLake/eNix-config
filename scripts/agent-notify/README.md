@@ -8,7 +8,13 @@ backed up once beside the originals with the suffix `.pre-agent-notify`.
 
 An existing Codex notification command is saved in
 `~/.local/state/agent-notify/codex-notify.json` and called with the original event
-before showing the banner. This preserves the desktop computer-use callback.
+before filtering or showing the banner. This preserves the desktop computer-use
+callback even for suppressed completions.
+
+Codex banners require a saved thread in its local database and exclude subagents.
+Temporary background work, such as generating a chat title, therefore cannot
+produce a banner or a shortcut to a nonexistent chat. If thread metadata cannot
+be read, the banner is skipped; the original callback still runs.
 
 The banner contains the agent name and session name, or the project directory
 when no name is available. Codex names are read from its local SQLite database

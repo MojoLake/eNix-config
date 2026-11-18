@@ -13,7 +13,8 @@ HOME = Path.home()
 HERE = Path(__file__).resolve().parent
 
 
-def codex_title(thread_id):
+def codex_thread(thread_id):
+    """Read persisted metadata; temporary background tasks have no thread row."""
     if not thread_id:
         return None
     directory = Path(os.environ.get("CODEX_HOME", HOME / ".codex"))
@@ -24,17 +25,36 @@ def codex_title(thread_id):
         try:
             connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0.2)
             try:
-                columns = {row[1] for row in connection.execute("PRAGMA table_info(threads)")}
-                # Current desktop titles are in `name`; older versions use `title`.
-                field = "COALESCE(NULLIF(name, ''), title)" if "name" in columns else "title"
-                row = connection.execute(f"SELECT {field} FROM threads WHERE id = ?", (thread_id,)).fetchone()
-                if row and row[0]:
-                    return row[0]
+                connection.row_factory = sqlite3.Row
+                row = connection.execute("SELECT * FROM threads WHERE id = ?", (thread_id,)).fetchone()
+                if row is not None:
+                    return dict(row)
             finally:
                 connection.close()
         except sqlite3.Error:
             continue
     return None
+
+
+def codex_title(thread_id):
+    thread = codex_thread(thread_id) or {}
+    # Current desktop titles are in `name`; older versions use `title`.
+    return thread.get("name") or thread.get("title")
+
+
+def codex_should_notify(thread_id):
+    thread = codex_thread(thread_id)
+    if not thread:
+        return False
+    # Persisted subagents also finish turns, but are not standalone user chats.
+    source = thread.get("source")
+    try:
+        source = json.loads(source)
+    except (TypeError, ValueError):
+        pass
+    if source == "subagent" or isinstance(source, dict) and "subagent" in source:
+        return False
+    return thread.get("agent_path") in (None, "", "/root")
 
 
 def claude_title(event):
@@ -156,8 +176,9 @@ def main():
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             print(f"agent-notify: existing Codex callback: {error}", file=sys.stderr)
     event = json.loads(raw)
-    if agent == "codex" and not capture and event.get("type") != "agent-turn-complete":
-        return
+    if agent == "codex" and not capture:
+        if event.get("type") != "agent-turn-complete" or not codex_should_notify(event.get("thread-id")):
+            return
     send_to_hammerspoon(payload(agent, event), capture=capture)
 
 

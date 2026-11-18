@@ -93,6 +93,48 @@ class NotificationsTest(unittest.TestCase):
             transcript.write_text('invalid line\n' + json.dumps({"type": "custom-title", "customTitle": "Debug router"}) + "\n")
             self.assertEqual(notify.claude_title({"transcript_path": str(transcript)}), "Debug router")
 
+    def test_codex_completion_filters_background_tasks_but_always_forwards(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(notify.os.environ, {"CODEX_HOME": temporary}):
+            path = Path(temporary) / "state_5.sqlite"
+            with closing(sqlite3.connect(path)) as db, db:
+                db.execute("CREATE TABLE threads (id TEXT, title TEXT, source TEXT, agent_path TEXT)")
+                db.executemany("INSERT INTO threads VALUES (?, ?, ?, ?)", [
+                    ("chat", "User conversation", "cli", None),
+                    ("untitled", "", "vscode", "/root"),
+                    ("child", "Worker", json.dumps({"subagent": {"thread_spawn": {"parent_thread_id": "chat"}}}), None),
+                    ("memory", "", json.dumps({"subagent": "memory_consolidation"}), None),
+                    ("legacy-child", "Worker", "subagent", None),
+                    ("path-child", "Worker", "cli", "/root/worker"),
+                ])
+            for thread_id, expected in [("chat", True), ("untitled", True),
+                                        ("temporary-title-task", False), (None, False),
+                                        ("child", False), ("memory", False),
+                                        ("legacy-child", False), ("path-child", False)]:
+                with self.subTest(thread_id=thread_id):
+                    raw = json.dumps({"type": "agent-turn-complete", "thread-id": thread_id})
+                    with patch.object(notify.sys, "argv", ["notify.py", "codex", raw]), \
+                         patch.object(notify, "forward_codex") as forward, \
+                         patch.object(notify, "terminal_context", return_value=None), \
+                         patch.object(notify, "send_to_hammerspoon") as send:
+                        notify.main()
+                        forward.assert_called_once_with(raw)
+                        self.assertEqual(send.call_count, int(expected))
+                        if expected:
+                            self.assertEqual(send.call_args.args[0]["threadID"], thread_id)
+
+    def test_missing_or_unreadable_codex_metadata_skips_banner(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(notify.os.environ, {"CODEX_HOME": temporary}):
+            self.assertFalse(notify.codex_should_notify("chat"))
+            path = Path(temporary) / "state_5.sqlite"
+            path.write_text("not a database")
+            raw = '{"type":"agent-turn-complete","thread-id":"chat"}'
+            with patch.object(notify.sys, "argv", ["notify.py", "codex", raw]), \
+                 patch.object(notify, "forward_codex") as forward, \
+                 patch.object(notify, "send_to_hammerspoon") as send:
+                notify.main()
+                forward.assert_called_once_with(raw)
+                send.assert_not_called()
+
     def test_titles_are_data_not_lua_or_shell_code(self):
         malicious = 'Quotes " and $(touch /tmp/unwanted)'
         with patch.object(notify.sys, "argv", ["notify.py", "pi", json.dumps({"title": malicious})]), \
