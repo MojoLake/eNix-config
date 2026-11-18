@@ -16,13 +16,18 @@ The interface is a terminal command.
 - Eight connected lessons cover KV-cache reuse, shapes, byte counts, GQA,
   bandwidth, capacity, offloading and debugging. Each session includes a new
   application problem. A preceding-topic probe is included only when its latest
-  explanation was not independent. Retrying a lesson skips its explanation if
-  you already answered that explanation independently, focusing on the remaining gap.
+  explanation did not demonstrate understanding. Retrying a lesson skips its explanation if
+  you already demonstrated understanding, focusing on the remaining gap.
+  Retries rotate to an alternate problem when available. Every explanation and
+  application has an alternate question with its own reference and rubric.
   Queued redundant questions in older saved sessions are skipped on resume;
   attempted questions and all previous evidence are retained.
 - Online feedback evaluates your reasoning before giving a small hint. After two
   unsuccessful attempts, a reference explanation and your own reflection finish
-  the problem. An independent application answer advances the curriculum.
+  the problem. An application answer that demonstrates understanding advances the
+  curriculum, including after clarification or a hint. Minor omissions and an
+  obvious unfinished arithmetic step do not require ritual restatement; substantive
+  conceptual gaps still get feedback. Independent and assisted evidence remain distinct.
   Feedback also answers questions embedded in your response and can refer to
   reasoning you gave earlier in the session. Requested explanations are answered
   directly; they do not retroactively earn independent-answer credit.
@@ -95,7 +100,12 @@ authentication. The exception timer starts only after study and the reason are
 finished. Ctrl-C or `/quit` saves the current session and grants no new exception.
 Run the same command to resume (a `learn` session can also resume during `unlock`).
 Use `/hint` after an attempt, `/explain` for the reference after an attempt, or
-`/offline` to switch to self-check. Normal terminal line editing is supported.
+`/offline` to switch to self-check. `/skip` replaces the current question with an
+unused alternative on the same topic, including at the reflection prompt. It does
+not complete a question, advance the lesson, or grant access. You must still finish
+the replacement. Skipped attempts are preserved in the transcript. When the
+session's alternatives are exhausted, answer the current question or `/quit`;
+repeated skipping cannot finish a session. Normal terminal line editing is supported.
 
 Online assessment runs `codex exec` with a JSON output schema, an ephemeral
 temporary working directory, read-only sandbox and disabled shell, browser,
@@ -260,6 +270,8 @@ for native architecture.
 Privileged launchd installation and browser behavior require a separate live check
 after installation; automated tests do not claim to cover them.
 Tutor tests additionally cover progression, independent versus hinted answers,
+advancement after clarification, replacement questions without completion credit,
+exhausted alternatives, preservation of skipped attempts, retry rotation,
 bounded retries, offline and malformed-response fallback, interrupted evaluation
 and resumption, concurrent sessions, corruption preservation, numeric examples,
 and rejecting invalid sites/durations or an old installation before starting study.

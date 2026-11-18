@@ -68,6 +68,105 @@ class TutorTests(unittest.TestCase):
         self.assertTrue(task["assisted"])
         self.assertFalse(task["independent"])
 
+    def test_correct_after_clarification_advances_but_stays_assisted(self):
+        for task in self.state["active"]["tasks"]:
+            self.run_task(task, ["initial reasoning", "clarified reasoning"],
+                          [assessment("partial", "Clarify the dependency."), assessment("correct")])
+        completed, _ = tutor.finish(self.state, self.store)
+        self.assertTrue(completed["advanced"])
+        self.assertEqual(self.state["cursor"], 1)
+        self.assertTrue(all(e["understood"] and not e["independent"]
+                            for e in self.state["recent"][-1]["evidence"]))
+        self.assertEqual([t["kind"] for t in tutor.new_session(self.state, self.curriculum)["tasks"]],
+                         ["main", "transfer"])
+
+    def test_skip_replaces_and_saves_without_completing_or_evaluating(self):
+        exercise = self.state["active"]["tasks"][0]
+        original = copy.deepcopy(exercise)
+        answers = iter(["/skip"])
+        def read():
+            try:
+                return next(answers)
+            except StopIteration:
+                raise KeyboardInterrupt
+        evaluator = FakeEvaluator([])
+        with self.assertRaises(KeyboardInterrupt):
+            tutor.run_task(exercise, self.state, self.store, evaluator, read, lambda _: None)
+        saved = self.store.load()
+        replacement = saved["active"]["tasks"][0]
+        self.assertNotEqual(replacement["question"], original["question"])
+        self.assertEqual(replacement["kind"], original["kind"])
+        self.assertEqual(replacement["concept"], original["concept"])
+        self.assertFalse(replacement["done"])
+        self.assertFalse(replacement["independent"])
+        self.assertEqual(evaluator.calls, 0)
+        self.assertEqual(saved["cursor"], 0)
+        self.assertEqual(saved["concepts"], {})
+        self.assertEqual(saved["active"]["skipped_tasks"][0]["question"], original["question"])
+        with self.assertRaises(ValueError):
+            tutor.finish(saved, self.store)
+        self.run_task(exercise, ["answer to replacement"], [assessment("correct")])
+        self.assertTrue(exercise["done"])
+
+    def test_skipping_every_question_never_completes_session(self):
+        for exercise in self.state["active"]["tasks"]:
+            output = []
+            tutor.replace_question(exercise, self.state, self.store, self.curriculum, output.append)
+            replacement = copy.deepcopy(exercise)
+            for _ in range(5):
+                tutor.replace_question(exercise, self.state, self.store, self.curriculum, output.append)
+            self.assertEqual(exercise, replacement)
+            self.assertTrue(any("No unused alternative" in line for line in output))
+        self.assertFalse(any(t["done"] for t in self.state["active"]["tasks"]))
+        with self.assertRaises(ValueError):
+            tutor.finish(self.state, self.store)
+
+    def test_correct_alternative_explanation_is_not_reasked_on_retry(self):
+        main, transfer = self.state["active"]["tasks"]
+        self.run_task(main, ["/skip", "reasoned alternative answer"], [assessment("correct")])
+        self.run_task(transfer, ["attempt", "reflection"], [None])
+        tutor.finish(self.state, self.store)
+        retry = tutor.new_session(self.state, self.curriculum)
+        self.assertEqual([item["kind"] for item in retry["tasks"]], ["transfer"])
+
+    def test_skip_after_feedback_or_reveal_preserves_attempts_and_requires_new_answer(self):
+        for revealed in (False, True):
+            with self.subTest(revealed=revealed):
+                self.state["active"] = tutor.new_session(self.state, self.curriculum)
+                exercise = self.state["active"]["tasks"][0]
+                exercise.update(assisted=True, revealed=revealed, attempts=[
+                    {"answer": "old reasoning", "assessment": assessment("partial")}])
+                self.run_task(exercise, ["/skip", "new attempt", "new reflection"], [None])
+                skipped = self.state["active"]["skipped_tasks"][-1]
+                self.assertEqual(skipped["attempts"][0]["answer"], "old reasoning")
+                self.assertEqual(exercise["attempts"][0]["answer"], "new attempt")
+                self.assertTrue(exercise["done"])
+                self.assertFalse(tutor.understood(exercise))
+                self.assertFalse(exercise["independent"])
+
+    def test_retry_rotates_problem_and_does_not_rotate_again_on_resume(self):
+        for exercise in self.state["active"]["tasks"]:
+            self.run_task(exercise, ["attempt", "reflection"], [None])
+        original = self.state["active"]["tasks"][-1]["question"]
+        tutor.finish(self.state, self.store)
+        retry = tutor.new_session(self.state, self.curriculum)
+        self.assertNotEqual(retry["tasks"][-1]["question"], original)
+        before = copy.deepcopy(retry)
+        self.assertFalse(tutor.rotate_repeated_questions(self.state, retry, self.curriculum))
+        self.assertEqual(retry, before)
+
+    def test_old_untouched_retry_rotates_but_pending_answer_is_preserved(self):
+        for exercise in self.state["active"]["tasks"]:
+            self.run_task(exercise, ["attempt", "reflection"], [None])
+        tutor.finish(self.state, self.store)
+        session = {"tasks": [tutor.task(self.curriculum["lessons"][0], "transfer")]}
+        original = copy.deepcopy(session)
+        self.assertTrue(tutor.rotate_repeated_questions(self.state, session, self.curriculum))
+        original["tasks"][0]["attempts"] = [{"answer": "saved answer", "assessment": "pending"}]
+        before = copy.deepcopy(original)
+        self.assertFalse(tutor.rotate_repeated_questions(self.state, original, self.curriculum))
+        self.assertEqual(original, before)
+
     def test_retry_practices_transfer_without_reasking_correct_explanation(self):
         main, transfer = self.state["active"]["tasks"]
         self.run_task(main, ["reasoned answer"], [assessment("correct")])
@@ -213,11 +312,29 @@ class TutorTests(unittest.TestCase):
         for lesson in lessons:
             for field in ("question", "reference", "rubric", "transfer", "transfer_reference", "transfer_rubric", "hints"):
                 self.assertTrue(lesson[field])
+            for kind in ("main", "recall", "transfer"):
+                options = tutor.question_options(tutor.task(lesson, kind), self.curriculum)
+                self.assertGreaterEqual(len(options), 2)
+                self.assertEqual(len({o["question"] for o in options}), len(options))
+                for option in options:
+                    for field in ("question", "reference", "rubric", "hints"):
+                        self.assertTrue(option[field])
         per_token = 2 * 32 * 8 * 128 * 2
         self.assertEqual(per_token * 4096 / 2**20, 512)
         self.assertEqual(per_token * (1024 + 2048 + 4096) / 2**20, 896)
         self.assertEqual((4 * 2**30) // (6144 * per_token), 5)
         self.assertEqual((512 * 2**20) / (32 * 2**30) * 1000, 15.625)
+        # Alternative exercises: independently calculate the stated numeric answers.
+        self.assertEqual(2 * 12 * 4 * 64 * 50, 307200)
+        self.assertEqual(2 * 6 * 2 * 16 * (20 + 50 + 70), 53760)
+        self.assertEqual(2 * 6 * 2 * 16 * (3 * 70 - 140), 26880)
+        variant_per_token = 2 * 16 * 4 * 128 * 2
+        self.assertEqual(variant_per_token * 2048, 67108864)
+        self.assertEqual(variant_per_token * 4096 / 2**20, 128)
+        self.assertEqual(variant_per_token * 2 * 8 / 2**10, 512)
+        self.assertEqual((256 * 2**20) / (512 * 2**30) * 1000, 0.48828125)
+        self.assertEqual((3 * 2**30) // (5120 * per_token), 4)
+        self.assertEqual((3 * 256 * 2**20) / (16 * 2**30) * 1000, 46.875)
 
     def test_preflight_invalid_site_and_old_install_never_runs_sudo(self):
         policy = Path(self.tmp.name) / "policy.json"

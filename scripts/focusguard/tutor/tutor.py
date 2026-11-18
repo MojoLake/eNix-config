@@ -39,12 +39,24 @@ Assess the reasoning, including units and assumptions, not just matching words.
 Accept equivalent correct explanations. Do not require material outside the question.
 Use the supplied earlier answers in this session when the learner refers back to
 their reasoning. Do not demand they repeat an explanation they already gave.
-Grade conceptual understanding rather than exhaustive checklist wording. Credit
+The rubric is guidance about concepts, not a checklist of mandatory phrases. Grade
+conceptual understanding rather than exhaustive checklist wording. Credit
 clear logical implications (for example, 'only positions before the edit are valid'
 excludes the edited position). Do not invent missing knowledge from a bare claim
 such as 'I know this'. A material ambiguity warrants one precise clarification.
-correct means the whole original question is adequately answered. Answering only a
-hint or sub-question is partial, unless the combined attempts now answer it fully.
+correct means the combined answers demonstrate the central reasoning needed for
+the problem. Accept minor omissions, an unevaluated final arithmetic operation,
+or a missing restatement of a factor already established in the conversation.
+For example, a correct total cache size and correct per-token increment, with the
+same increment for each of three sequences, show understanding even if the learner
+does not explicitly multiply the increment by three. Supply that final step in
+feedback and mark correct. Do not demand another attempt merely to complete it.
+Use partial for a substantive unresolved gap: a wrong dependency, incompatible
+units, or reasoning that does not establish the core idea. A bare numerical guess
+without enough context to establish understanding can warrant clarification.
+Clarifications and corrected answers can demonstrate understanding even after a
+hint; independence is tracked separately by the application. Never infer
+understanding solely from an assertion that the learner already knows the topic.
 If facts or wording are ambiguous, return uncertain with a short clarification hint.
 Feedback is a natural tutor reply, not a grading checklist. Address the learner's
 actual reasoning, and directly answer any genuine questions embedded in their
@@ -160,17 +172,75 @@ def new_session(state, curriculum):
                "lesson": lesson["id"], "title": lesson["title"], "tasks": tasks,
                "sources": curriculum["sources"], "curriculum_version": curriculum["version"]}
     skip_redundant_questions(state, session)
+    rotate_repeated_questions(state, session, curriculum)
     return session
 
 
-def previously_independent(state, exercise):
-    """Latest evidence wins, including a later failed review. No mastery inference."""
+def question_options(exercise, curriculum):
+    lesson = next(item for item in curriculum["lessons"] if item["id"] == exercise["concept"])
+    kind = "transfer" if exercise["kind"] == "transfer" else "main"
+    base = task(lesson, exercise["kind"])
+    return [base] + [{**task(lesson, exercise["kind"]), **variant}
+                     for variant in lesson.get("alternatives", {}).get(kind, [])]
+
+
+def rotate_repeated_questions(state, session, curriculum):
+    """Prefer a different problem on retry, including untouched saved sessions."""
+    changed = False
+    for exercise in session["tasks"]:
+        if not untouched(exercise):
+            continue
+        # Do not keep rotating an already presented replacement on resume.
+        if exercise.get("rotated"):
+            continue
+        previous = [e.get("question") for s in state["recent"] for e in s["evidence"]
+                    if e["concept"] == exercise["concept"] and e["kind"] == exercise["kind"]]
+        if not previous or previous[-1] != exercise["question"]:
+            continue
+        options = question_options(exercise, curriculum)
+        alternatives = [item for item in options if item["question"] != previous[-1]
+                        and item["reference"] != exercise["reference"]]
+        if alternatives:
+            # Unseen first, otherwise least recently completed.
+            chosen = min(alternatives, key=lambda item: max(
+                (i for i, q in enumerate(previous) if q == item["question"]), default=-1))
+            exercise.clear()
+            exercise.update(chosen, rotated=True)
+            changed = True
+    return changed
+
+
+def untouched(exercise):
+    return (not exercise["attempts"] and not exercise["done"]
+            and not exercise["assisted"] and not exercise["revealed"]
+            and not exercise["hint_count"] and exercise["reflection"] is None)
+
+
+def replace_question(exercise, state, store, curriculum, output):
+    session = state["active"]
+    seen = {item["question"] for item in session["tasks"] + session.get("skipped_tasks", [])}
+    seen_references = {item["reference"] for item in session["tasks"] + session.get("skipped_tasks", [])}
+    replacement = next((item for item in question_options(exercise, curriculum)
+                        if item["question"] not in seen and item["reference"] not in seen_references), None)
+    if replacement is None:
+        output("No unused alternative remains for this question in this session. Answer this one, or /quit to save and leave. Skipping cannot complete a question.")
+        return
+    session.setdefault("skipped_tasks", []).append({
+        **exercise, "skip_reason": "Learner requested another question.", "skipped_at": now()})
+    exercise.clear()
+    exercise.update(replacement, rotated=True)
+    store.save(state)
+    output("Different question, same topic. Skipping gives no completion or answer credit.")
+    output(exercise["question"])
+
+
+def previously_understood(state, exercise):
+    """Equivalent explanations share a concept; latest evidence wins, not mastery."""
     for summary in reversed(state["recent"]):
         for evidence in reversed(summary["evidence"]):
             if (evidence["concept"] == exercise["concept"]
-                    and evidence["kind"] in ("main", "recall")
-                    and evidence.get("question", exercise["question"]) == exercise["question"]):
-                return evidence["independent"]
+                    and evidence["kind"] in ("main", "recall")):
+                return evidence.get("understood", evidence["independent"])
     return False
 
 
@@ -180,13 +250,10 @@ def skip_redundant_questions(state, session):
                 and not state["recent"][-1]["advanced"])
     kept = []
     for exercise in session["tasks"]:
-        untouched = (not exercise["attempts"] and not exercise["done"]
-                     and not exercise["assisted"] and not exercise["revealed"]
-                     and not exercise["hint_count"] and exercise["reflection"] is None)
         redundant = (exercise["kind"] == "recall" or (exercise["kind"] == "main" and retrying))
-        if untouched and redundant and previously_independent(state, exercise):
+        if untouched(exercise) and redundant and previously_understood(state, exercise):
             session.setdefault("skipped_tasks", []).append({
-                **exercise, "skip_reason": "Already answered independently in a completed session."})
+                **exercise, "skip_reason": "Understanding already demonstrated in a completed session."})
         else:
             kept.append(exercise)
     changed = len(kept) != len(session["tasks"])
@@ -301,7 +368,9 @@ def answer(prompt="Your reasoning> "):
             return clean(value)
 
 
-def run_task(exercise, state, store, evaluator, read=answer, output=say):
+def run_task(exercise, state, store, evaluator, read=answer, output=say, curriculum=None):
+    if curriculum is None:
+        curriculum = json.loads((HERE / "curriculum.json").read_text())
     output("\n" + {"recall": "Recall from your previous topic", "main": "Build the idea", "transfer": "Apply it to a different problem"}[exercise["kind"]])
     output(exercise["question"])
     # Two attempts at most; correction + reflection finishes a hard question.
@@ -311,8 +380,11 @@ def run_task(exercise, state, store, evaluator, read=answer, output=say):
             if exercise["reflection"] is None:
                 output("In your own words, what did you miss or confirm, and why? (This is practice, not independent evidence.)")
                 value = read()
+                if value.lower() == "/skip":
+                    replace_question(exercise, state, store, curriculum, output)
+                    continue
                 if value.startswith("/"):
-                    output("Write your reflection, or /quit to save and leave.")
+                    output("Write your reflection, /skip for another question, or /quit to save and leave.")
                     continue
                 exercise["reflection"] = value
             exercise["done"] = True
@@ -329,6 +401,9 @@ def run_task(exercise, state, store, evaluator, read=answer, output=say):
                         output("Hint: " + previous["hint"])
                 output("Revise your answer to the original question; include your reasoning.")
             value = read()
+            if value.lower() == "/skip":
+                replace_question(exercise, state, store, curriculum, output)
+                continue
             if value.lower() == "/offline":
                 evaluator.offline = True
                 output("Offline self-check enabled for this session. Answers will not be graded.")
@@ -347,7 +422,7 @@ def run_task(exercise, state, store, evaluator, read=answer, output=say):
                 store.save(state)
                 continue
             if value.startswith("/"):
-                output("Commands: /hint, /explain, /offline, /quit.")
+                output("Commands: /hint, /explain, /skip, /offline, /quit.")
                 continue
             exercise["attempts"].append({"answer": value, "at": now(), "assessment": "pending"})
             store.save(state)
@@ -377,6 +452,13 @@ def run_task(exercise, state, store, evaluator, read=answer, output=say):
         store.save(state)
 
 
+def understood(exercise):
+    if not exercise["done"] or not exercise["attempts"]:
+        return False
+    result = exercise["attempts"][-1]["assessment"]
+    return isinstance(result, dict) and result["verdict"] == "correct"
+
+
 def finish(state, store):
     session = state["active"]
     if not all(item["done"] for item in session["tasks"]):
@@ -386,9 +468,9 @@ def finish(state, store):
         concept = state["concepts"].setdefault(item["concept"], {"independent": 0, "assisted": 0})
         concept["independent" if item["independent"] else "assisted"] += 1
         concept["last_session"] = session["id"]
-    # Only a fresh, unassisted transfer answer moves the curriculum forward.
-    # This is provisional exercise evidence, never a formal mastery level.
-    advance = session["tasks"][-1]["independent"]
+    # Demonstrated understanding advances practice even after clarification.
+    # Independence remains separate; skips and offline reflections cannot advance.
+    advance = understood(session["tasks"][-1])
     if advance:
         state["cursor"] += 1
     session["advanced"] = advance
@@ -396,6 +478,7 @@ def finish(state, store):
                "evidence": [{"concept": item["concept"], "kind": item["kind"],
                              "question": item["question"],
                              "independent": item["independent"],
+                             "understood": understood(item),
                              "misconceptions": [a["assessment"]["misconception"] for a in item["attempts"]
                                                  if isinstance(a["assessment"], dict) and a["assessment"]["misconception"]]}
                             for item in session["tasks"]]}
@@ -416,13 +499,17 @@ def study(store, offline=False):
     session = state["active"]
     if skip_redundant_questions(state, session):
         store.save(state)
-        say("Skipping a queued question you already answered independently. Your earlier evidence is preserved.")
+        say("Skipping a queued question where you already demonstrated understanding. Your earlier evidence is preserved.")
+    if rotate_repeated_questions(state, session, curriculum):
+        store.save(state)
+        say("Using a different practice question for the remaining gap.")
     say(("Resuming: " if resuming else "FocusGuard tutor: ") + session["title"])
     lesson_number = next((i + 1 for i, lesson in enumerate(curriculum["lessons"])
                           if lesson["id"] == session["lesson"]), "?")
     say(f"Lesson {lesson_number}/{len(curriculum['lessons'])} · {sum(not t['done'] for t in session['tasks'])} questions remaining")
-    say("One question at a time; usually 5–10 minutes. /hint · /explain · /offline · /quit")
-    say("Progress saves after every answer. Two attempts per question, then a correction and your explanation. Completion does not require a perfect score.")
+    say("One question at a time; usually 5–10 minutes. /hint · /explain · /skip · /offline · /quit")
+    say("/skip replaces the current question; it gives no completion credit. Alternatives are limited per session.")
+    say("Progress saves after every answer. Two attempts per question, then a correction and your explanation. Demonstrated understanding advances the lesson, including after clarification; a perfect response is not required.")
     evaluator = Evaluator(offline)
     if evaluator.offline:
         say("Offline self-check: no LLM grading and no inferred advancement.")
@@ -430,13 +517,13 @@ def study(store, offline=False):
         say("Online: using your signed-in Codex account. Sends this exercise, your answers, recent evidence and a small learner-profile excerpt. Local transcripts are private to your user account.")
     for exercise in session["tasks"]:
         if not exercise["done"]:
-            run_task(exercise, state, store, evaluator)
+            run_task(exercise, state, store, evaluator, curriculum=curriculum)
     completed, path = finish(state, store)
     independent = sum(item["independent"] for item in completed["tasks"])
     say(f"\nSession complete. {independent}/{len(completed['tasks'])} questions answered independently.")
     next_lesson = curriculum["lessons"][state["cursor"] % len(curriculum["lessons"])]
     say("Next lesson: " + next_lesson["title"] if completed["advanced"] else
-        "Next session practices the remaining gap; independently answered explanations will be skipped. Hints and offline self-check do not count as independent evidence.")
+        "Next session uses another practice problem for the remaining gap when available. Explanations where you demonstrated understanding will be skipped. Offline self-check does not automatically advance lessons.")
     say("Sources:\n" + "\n".join(completed["sources"]))
     say("Saved: " + str(path))
 
