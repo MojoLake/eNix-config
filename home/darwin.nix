@@ -25,6 +25,8 @@ in
 {
   imports = [ ./focusguard.nix ./buddy.nix ./agent-notifications.nix ];
 
+  targets.darwin.defaults."com.apple.menuextra.clock".ShowSeconds = true;
+
   # Enable flakes for this user without touching the system nix.conf.
   xdg.configFile."nix/nix.conf".text = ''
     experimental-features = nix-command flakes
