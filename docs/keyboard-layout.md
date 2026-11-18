@@ -34,6 +34,7 @@ Preserve existing desktop movement chords instead of changing the whole layout.
 | DESKTOP + number | Select workspace |
 | DESKTOP + Space | Spotlight on macOS; application launcher on NixOS |
 | DESKTOP + D | New Ghostty window beside the current window |
+| DESKTOP + CTRL + Q | Lock the screen on macOS (logical Control+Option+Q) |
 | DESKTOP + N | Dismiss the latest agent notification on macOS; latest Mako notification on Linux |
 | DESKTOP + Shift + N | Open the agent's window/chat and dismiss its notification; invoke Mako's default action on Linux |
 | DESKTOP + Tab | Native app switcher on macOS; hold DESKTOP and repeat Tab to cycle |

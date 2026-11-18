@@ -12,6 +12,11 @@ local translatedKeys = {}
 -- Replaces the previous skhd config: prevent accidental application hiding.
 hideAppGuard = hs.hotkey.bind({ "cmd" }, "h", function() end)
 
+-- Logical Control+Option+Q (physical Control+Command+Q): lock the screen.
+lockScreen = hs.hotkey.bind({ "ctrl", "alt" }, "q", function()
+    hs.caffeinate.lockScreen()
+end)
+
 -- Physical Command+D: open a terminal beside the current OmniWM column.
 -- Press the background app's menu item without activating its existing window:
 -- activating first could switch to Ghostty's workspace before creating the window.
