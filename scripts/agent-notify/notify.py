@@ -169,6 +169,10 @@ def main():
     capture = sys.argv[1] == "capture"
     args = sys.argv[2:] if capture else sys.argv[1:]
     agent = args[0]
+    # Claude reviews launched by Codex inherit its thread marker. They are
+    # background work within that chat, so neither capture a window nor notify.
+    if agent == "claude" and os.environ.get("CODEX_THREAD_ID"):
+        return
     raw = sys.stdin.read() if agent == "claude" else args[1]
     if agent == "codex" and not capture:
         try:

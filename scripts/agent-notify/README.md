@@ -16,6 +16,13 @@ Temporary background work, such as generating a chat title, therefore cannot
 produce a banner or a shortcut to a nonexistent chat. If thread metadata cannot
 be read, the banner is skipped; the original callback still runs.
 
+Claude hooks skip both window capture and completion banners when
+`CODEX_THREAD_ID` is nonempty in their environment. Claude reviews launched by
+Codex inherit this marker, so only the enclosing Codex chat notifies when it
+finishes. Claude chats launched directly from a normal terminal still notify.
+This filter relies on the marker being inherited; wrappers that remove it
+cannot be identified by this check.
+
 The banner contains the agent name and session name, or the project directory
 when no name is available. Codex names are read from its local SQLite database
 in read-only mode. Claude names are best-effort, from `custom-title` transcript

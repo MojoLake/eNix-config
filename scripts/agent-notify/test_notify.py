@@ -1,4 +1,5 @@
 import importlib.util
+import io
 from contextlib import closing
 import json
 from pathlib import Path
@@ -92,6 +93,29 @@ class NotificationsTest(unittest.TestCase):
             transcript = Path(temporary) / "session.jsonl"
             transcript.write_text('invalid line\n' + json.dumps({"type": "custom-title", "customTitle": "Debug router"}) + "\n")
             self.assertEqual(notify.claude_title({"transcript_path": str(transcript)}), "Debug router")
+
+    def test_claude_hooks_only_run_outside_codex(self):
+        event = {"session_id": "claude-chat", "session_title": "Review router"}
+        for thread_id in (None, "", "parent-codex-chat"):
+            for capture in (False, True):
+                with self.subTest(thread_id=thread_id, capture=capture):
+                    argv = ["notify.py"] + (["capture"] if capture else []) + ["claude"]
+                    with patch.dict(notify.os.environ), \
+                         patch.object(notify.sys, "argv", argv), \
+                         patch.object(notify.sys, "stdin", io.StringIO(json.dumps(event))), \
+                         patch.object(notify, "terminal_context", return_value=None) as terminal, \
+                         patch.object(notify, "send_to_hammerspoon") as send:
+                        notify.os.environ.pop("CODEX_THREAD_ID", None)
+                        if thread_id is not None:
+                            notify.os.environ["CODEX_THREAD_ID"] = thread_id
+                        notify.main()
+                        if thread_id:
+                            terminal.assert_not_called()
+                            send.assert_not_called()
+                        else:
+                            send.assert_called_once()
+                            self.assertEqual(send.call_args.args[0]["agent"], "claude")
+                            self.assertEqual(send.call_args.kwargs, {"capture": capture})
 
     def test_codex_completion_filters_background_tasks_but_always_forwards(self):
         with tempfile.TemporaryDirectory() as temporary, patch.dict(notify.os.environ, {"CODEX_HOME": temporary}):
