@@ -60,6 +60,10 @@ in
 
     thunar
     tumbler
+
+    iverilog
+    gtkwave
+    yosys
   ];
 
   home.file = {
