@@ -100,5 +100,7 @@ in
 
   programs.zsh.shellAliases = {
     hms = "home-manager switch --flake ~/eNix-config#eliassimojoki";
+    neversleep = "sudo pmset -a disablesleep 1";
+    allowsleep = "sudo pmset -a disablesleep 0";
   };
 }
